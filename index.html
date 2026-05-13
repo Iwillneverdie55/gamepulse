@@ -761,10 +761,11 @@ function renderStats(data) {
     document.getElementById('statOverdue').textContent = overdue;
     document.getElementById('statResolved').textContent = resolvedThisWeek;
     document.getElementById('statFeedback').textContent = openFeedback;
-    document.querySelectorAll('#panel-payment .stat-label')[0].textContent = '未处理掉单';
-    document.querySelectorAll('#panel-payment .stat-label')[1] ? null : null; // these are global stats
+    document.querySelectorAll('.stat-label')[0].textContent = '未处理掉单';
+    document.querySelectorAll('.stat-label')[1].textContent = 'SLA 超时';
+    document.querySelectorAll('.stat-label')[2].textContent = '本周已完成';
+    document.querySelectorAll('.stat-label')[3].textContent = '待处理反馈';
   } else {
-    // Ops mode: different stats
     let toVerify = 0, toReissue = 0, overdue = 0, doneToday = 0;
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     payments.forEach(p => {
@@ -777,22 +778,10 @@ function renderStats(data) {
     document.getElementById('statOverdue').textContent = overdue;
     document.getElementById('statResolved').textContent = doneToday;
     document.getElementById('statFeedback').textContent = toReissue;
-  }
-
-  // Update stat labels based on role
-  const labels = document.querySelectorAll('.stat-label');
-  if (labels.length >= 4) {
-    if (currentRole === 'ops') {
-      labels[0].textContent = '待核实';
-      labels[1].textContent = 'SLA 超时';
-      labels[2].textContent = '今日已完成';
-      labels[3].textContent = '待补发';
-    } else {
-      labels[0].textContent = '未处理掉单';
-      labels[1].textContent = 'SLA 超时';
-      labels[2].textContent = '本周已完成';
-      labels[3].textContent = '待处理反馈';
-    }
+    document.querySelectorAll('.stat-label')[0].textContent = '待核实';
+    document.querySelectorAll('.stat-label')[1].textContent = 'SLA 超时';
+    document.querySelectorAll('.stat-label')[2].textContent = '今日已完成';
+    document.querySelectorAll('.stat-label')[3].textContent = '待补发';
   }
 }
 
@@ -907,7 +896,6 @@ function renderPayments(data) {
 function toggleExpand(id) {
   const el = document.getElementById('detail-' + id);
   if (el) el.classList.toggle('show');
-}
 }
 
 async function addPaymentNote(id) {
