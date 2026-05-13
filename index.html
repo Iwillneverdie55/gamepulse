@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GamePulse — 海外游戏运营工作台</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #22252f;
+  --border: #2a2d3a;
+  --text: #e1e4ed;
+  --text2: #8b8fa3;
+  --accent: #6c5ce7;
+  --accent2: #a29bfe;
+  --red: #e74c3c;
+  --orange: #f39c12;
+  --green: #2ecc71;
+  --blue: #3498db;
+  --pink: #e84393;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+.container { max-width:1400px; margin:0 auto; padding:20px; }
+
+/* Header */
+.header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:20px 0; border-bottom:1px solid var(--border); margin-bottom:24px;
+}
+.header h1 { font-size:1.5rem; font-weight:700; }
+.header h1 span { color:var(--accent2); }
+.header-actions { display:flex; gap:12px; align-items:center; }
+.current-time {
+  background: var(--surface2); padding:8px 16px; border-radius:8px;
+  font-size:0.85rem; color:var(--text2); font-variant-numeric: tabular-nums;
+}
+
+/* Stats Row */
+.stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
+.stat-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:20px; display:flex; flex-direction:column; gap:8px;
+}
+.stat-label { font-size:0.8rem; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; }
+.stat-value { font-size:2rem; font-weight:700; }
+.stat-sub { font-size:0.75rem; color:var(--text2); }
+.stat-value.red { color:var(--red); }
+.stat-value.orange { color:var(--orange); }
+.stat-value.green { color:var(--green); }
+.stat-value.blue { color:var(--blue); }
+
+/* Tabs */
+.tabs { display:flex; gap:4px; margin-bottom:24px; background:var(--surface); padding:4px; border-radius:10px; }
+.tab {
+  padding:10px 20px; border-radius:8px; cursor:pointer; font-size:0.9rem;
+  color:var(--text2); transition:all 0.15s; border:none; background:none;
+  white-space:nowrap;
+}
+.tab:hover { color:var(--text); background:var(--surface2); }
+.tab.active { background:var(--accent); color:#fff; }
+
+/* Panels */
+.panel { display:none; }
+.panel.active { display:block; }
+
+/* Cards */
+.card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:12px; padding:20px; margin-bottom:16px;
+}
+.card-header {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:16px;
+}
+.card-header h3 { font-size:1rem; }
+
+/* Tables */
+table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+th { text-align:left; padding:10px 12px; color:var(--text2); font-weight:500; border-bottom:1px solid var(--border); }
+td { padding:10px 12px; border-bottom:1px solid var(--border); }
+tr:hover td { background:var(--surface2); }
+.badge {
+  display:inline-block; padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:600;
+}
+.badge-pending { background:rgba(243,156,18,0.15); color:var(--orange); }
+.badge-progress { background:rgba(52,152,219,0.15); color:var(--blue); }
+.badge-done { background:rgba(46,204,113,0.15); color:var(--green); }
+.badge-overdue { background:rgba(231,76,60,0.15); color:var(--red); }
+.badge-high { background:rgba(232,67,147,0.15); color:var(--pink); }
+.badge-mid { background:rgba(243,156,18,0.15); color:var(--orange); }
+.badge-low { background:rgba(139,143,162,0.15); color:var(--text2); }
+
+/* Buttons */
+.btn {
+  padding:8px 16px; border-radius:8px; border:none; cursor:pointer;
+  font-size:0.85rem; font-weight:600; transition:all 0.15s;
+}
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-primary:hover { background:var(--accent2); }
+.btn-ghost { background:transparent; color:var(--text2); border:1px solid var(--border); }
+.btn-ghost:hover { border-color:var(--text2); color:var(--text); }
+.btn-sm { padding:4px 10px; font-size:0.75rem; }
+.btn-danger { background:var(--red); color:#fff; }
+
+/* Forms */
+input, select, textarea {
+  background:var(--surface2); border:1px solid var(--border); color:var(--text);
+  padding:8px 12px; border-radius:8px; font-size:0.85rem; width:100%;
+  font-family:inherit;
+}
+input:focus, select:focus, textarea:focus { outline:none; border-color:var(--accent); }
+label { display:block; font-size:0.8rem; color:var(--text2); margin-bottom:4px; }
+.form-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:12px; }
+.form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+
+/* Timezone selector */
+.tz-bar {
+  display:flex; gap:8px; align-items:center; padding:12px;
+  background:var(--surface2); border-radius:8px; margin-bottom:16px; flex-wrap:wrap;
+}
+.tz-chip {
+  padding:4px 12px; border-radius:16px; font-size:0.75rem; cursor:pointer;
+  background:var(--surface); border:1px solid var(--border); color:var(--text2);
+}
+.tz-chip.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* SLA Timer */
+.sla-bar {
+  height:4px; border-radius:2px; background:var(--border); margin-top:8px;
+}
+.sla-fill { height:100%; border-radius:2px; transition:width 0.3s; }
+.sla-fill.good { background:var(--green); }
+.sla-fill.warn { background:var(--orange); }
+.sla-fill.bad { background:var(--red); }
+
+/* Two column layout */
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+/* Feedback categories */
+.feedback-cats { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.feedback-cat {
+  padding:6px 14px; border-radius:20px; font-size:0.8rem; cursor:pointer;
+  background:var(--surface2); border:1px solid var(--border); color:var(--text2);
+}
+.feedback-cat.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.feedback-cat .count { margin-left:6px; opacity:0.7; font-size:0.75rem; }
+
+/* Log */
+.log-entry {
+  padding:10px 0; border-bottom:1px solid var(--border); font-size:0.82rem;
+  display:flex; gap:12px; align-items:flex-start;
+}
+.log-time { color:var(--text2); white-space:nowrap; font-variant-numeric:tabular-nums; min-width:50px; }
+.log-icon { font-size:1rem; min-width:20px; text-align:center; }
+
+/* Empty state */
+.empty { text-align:center; padding:40px; color:var(--text2); }
+.empty-icon { font-size:3rem; margin-bottom:12px; opacity:0.5; }
+
+/* Responsive */
+@media (max-width:768px) {
+  .stats { grid-template-columns:1fr 1fr; }
+  .grid-2 { grid-template-columns:1fr; }
+  .tabs { overflow-x:auto; flex-wrap:nowrap; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Header -->
+<div class="header">
+  <h1>🎮 海外游戏运营工作台 <span>GamePulse</span></h1>
+  <div class="header-actions">
+    <div class="current-time" id="liveClock">--</div>
+    <button class="btn btn-ghost btn-sm" onclick="exportAll()">📤 导出数据</button>
+    <button class="btn btn-ghost btn-sm" onclick="resetAll()">🗑 清空</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-label">未处理掉单</div>
+    <div class="stat-value orange" id="statPending">0</div>
+    <div class="stat-sub">需立即处理</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">SLA 超时</div>
+    <div class="stat-value red" id="statOverdue">0</div>
+    <div class="stat-sub">超过4小时的工单</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">本周已完成</div>
+    <div class="stat-value green" id="statResolved">0</div>
+    <div class="stat-sub">成功补发/修复</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">待处理反馈</div>
+    <div class="stat-value blue" id="statFeedback">0</div>
+    <div class="stat-sub">需转运营评估</div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('payment')">💳 充值掉单追踪</button>
+  <button class="tab" onclick="switchTab('feedback')">📋 玩家反馈看板</button>
+  <button class="tab" onclick="switchTab('liveops')">📅 LiveOps 日历</button>
+  <button class="tab" onclick="switchTab('network')">🌐 CDN/网络监控</button>
+  <button class="tab" onclick="switchTab('analytics')">📊 数据看板</button>
+</div>
+
+<!-- ============ PAYMENT TAB ============ -->
+<div class="panel active" id="panel-payment">
+  <div class="grid-2">
+    <!-- New ticket form -->
+    <div class="card">
+      <div class="card-header"><h3>+ 新建掉单工单</h3></div>
+      <div class="form-row">
+        <div><label>角色 ID</label><input id="payCharId"></div>
+        <div><label>账号 ID</label><input id="payAccountId"></div>
+        <div><label>角色名</label><input id="payCharName"></div>
+      </div>
+      <div class="form-row">
+        <div><label>区服</label><input id="payServer"></div>
+        <div><label>订单号</label><input id="payOrderId"></div>
+      </div>
+      <div class="form-row">
+        <div><label>支付渠道</label>
+          <select id="payChannel">
+            <option>Apple Store (iOS)</option><option>Google Play</option>
+            <option>MyCard (台湾)</option><option>Razer Gold (东南亚)</option>
+            <option>Codashop</option><option>信用卡直付</option><option>第三方/其他</option>
+          </select>
+        </div>
+        <div><label>金额 ($)</label><input id="payAmount" type="number" step="0.01" placeholder="9.99"></div>
+      </div>
+      <div class="form-row">
+        <div><label>玩家地区</label>
+          <select id="payRegion">
+            <option>台湾</option><option>香港</option>
+            <option>泰国</option><option>印尼</option><option>菲律宾</option><option>越南</option>
+            <option>巴西</option><option>墨西哥</option><option>美国</option>
+            <option>韩国</option><option>日本</option><option>其他</option>
+          </select>
+        </div>
+        <div><label>玩家时区</label>
+          <select id="payTz">
+            <option value="8">UTC+8 (台湾/香港/北京)</option><option value="7">UTC+7 (泰国/越南)</option>
+            <option value="9">UTC+9 (韩国/日本)</option><option value="-3">UTC-3 (巴西)</option>
+            <option value="-6">UTC-6 (墨西哥)</option><option value="-5">UTC-5 (美东)</option>
+            <option value="-8">UTC-8 (美西)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div><label>玩家投诉时间（玩家本地）</label><input id="payReportTime" type="datetime-local"></div>
+        <div><label>优先级</label>
+          <select id="payPriority"><option value="high">🔴 高 (大R/高金额)</option><option value="mid" selected>🟡 中</option><option value="low">🟢 低</option></select>
+        </div>
+      </div>
+      <div class="form-row"><div style="grid-column:1/-1"><label>玩家描述</label><textarea id="payDesc" rows="2" placeholder="玩家的投诉原文..."></textarea></div></div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="addPayment()">✅ 创建工单</button>
+      </div>
+    </div>
+
+    <!-- Quick SLA reference -->
+    <div class="card">
+      <div class="card-header"><h3>⏱ SLA 标准（基于行业最佳实践）</h3></div>
+      <table>
+        <tr><td>高优先级 (VIP/大R)</td><td style="color:var(--red)">⏱ 1 小时内</td></tr>
+        <tr><td>中优先级 (常规充值)</td><td style="color:var(--orange)">⏱ 4 小时内</td></tr>
+        <tr><td>低优先级 (小额/咨询)</td><td style="color:var(--text2)">⏱ 24 小时内</td></tr>
+        <tr><td colspan="2"><hr style="border-color:var(--border);margin:8px 0"></td></tr>
+        <tr><td>玩家预期响应</td><td>2-4 小时</td></tr>
+        <tr><td>行业平均水平</td><td style="color:var(--red)">48-84 小时</td></tr>
+        <tr><td>领先标准 (Helpshift)</td><td style="color:var(--green)">&lt; 9 小时</td></tr>
+        <tr><td colspan="2" style="color:var(--text2);font-size:0.75rem;padding-top:8px;">
+          💡 30% 的玩家 IAP 问题未解决则永不再付费<br>
+          💡 VIP 掉单损失 = $500-$2000/年/玩家</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Payment ticket list -->
+  <div class="card">
+    <div class="card-header">
+      <h3>工单列表</h3>
+      <div style="display:flex;gap:8px">
+        <select id="payFilter" onchange="renderPayments()" style="width:auto">
+          <option value="all">全部</option><option value="pending">待处理</option>
+          <option value="progress">处理中</option><option value="done">已完成</option><option value="overdue">SLA 超时</option>
+        </select>
+      </div>
+    </div>
+    <div id="paymentList"><div class="empty"><div class="empty-icon">📭</div>暂无工单，创建你的第一笔吧</div></div>
+  </div>
+</div>
+
+<!-- ============ FEEDBACK TAB ============ -->
+<div class="panel" id="panel-feedback">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><h3>+ 记录玩家反馈</h3></div>
+      <div class="form-row">
+        <div><label>来源渠道</label>
+          <select id="fbSource"><option>Discord</option><option>Reddit</option><option>App Store 评论</option><option>Google Play 评论</option><option>Facebook</option><option>客服工单</option><option>游戏内反馈</option></select>
+        </div>
+        <div><label>分类</label>
+          <select id="fbCategory">
+            <option>Bug/闪退</option><option>充值/支付</option><option>连接/延迟</option>
+            <option>游戏平衡</option><option>UI/翻译</option><option>活动建议</option>
+            <option>内容需求</option><option>其他</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div><label>角色 ID</label><input id="fbCharId"></div>
+        <div><label>账号 ID</label><input id="fbAccountId"></div>
+      </div>
+      <div class="form-row">
+        <div><label>角色名</label><input id="fbCharName"></div>
+        <div><label>区服</label><input id="fbServer"></div>
+        <div><label>玩家地区</label><select id="fbRegion"><option>台湾</option><option>泰国</option><option>印尼</option><option>巴西</option><option>美国</option><option>韩国</option><option>其他</option></select></div>
+      </div>
+      <div class="form-row"><div style="grid-column:1/-1"><label>反馈原文 / 摘要</label><textarea id="fbContent" rows="3" placeholder="记录玩家原话或摘要..."></textarea></div></div>
+      <div class="form-row">
+        <div><label>影响面评估</label>
+          <select id="fbImpact"><option value="wide">大规模（多人反馈）</option><option value="some" selected>部分玩家</option><option value="single">个别玩家</option></select>
+        </div>
+        <div><label>严重程度</label>
+          <select id="fbSeverity"><option value="critical">🔴 严重 (影响付费/留存)</option><option value="major" selected>🟡 重要</option><option value="minor">🟢 轻微</option></select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="addFeedback()">📝 记录反馈</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>💡 反馈分类指南</h3></div>
+      <div style="font-size:0.82rem;color:var(--text2);line-height:1.8">
+        <p>🔴 <b>严重</b> → 影响付费/大量玩家无法游戏 → 立即转运营+研发</p>
+        <p>🟡 <b>重要</b> → 影响体验但不阻塞 → 加入迭代计划</p>
+        <p>🟢 <b>轻微</b> → 个体问题 → 常规客服处理</p>
+        <hr style="border-color:var(--border);margin:12px 0">
+        <p>📊 每周汇总一次反馈趋势：</p>
+        <p>• 哪种分类反馈在上升？→ 可能是新版本引入的 Bug</p>
+        <p>• 哪个地区反馈最多？→ 可能是本地化/网络问题</p>
+        <p>• 哪些反馈是"吵闹的少数"？→ 交叉对比付费数据</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback list -->
+  <div class="card">
+    <div class="card-header"><h3>反馈列表</h3><div class="feedback-cats" id="fbCategoryFilter"></div></div>
+    <div id="feedbackList"><div class="empty"><div class="empty-icon">📋</div>暂无反馈记录</div></div>
+  </div>
+</div>
+
+<!-- ============ LIVEOPS TAB ============ -->
+<div class="panel" id="panel-liveops">
+  <div class="tz-bar">
+    <span style="font-size:0.8rem;color:var(--text2);margin-right:8px">🌍 快速时区对照:</span>
+    <span class="tz-chip active" onclick="setRefTz('UTC+8')">UTC+8 北京/台北</span>
+    <span class="tz-chip" onclick="setRefTz('UTC+9')">UTC+9 东京/首尔</span>
+    <span class="tz-chip" onclick="setRefTz('UTC+7')">UTC+7 曼谷/胡志明</span>
+    <span class="tz-chip" onclick="setRefTz('UTC-3')">UTC-3 圣保罗</span>
+    <span class="tz-chip" onclick="setRefTz('UTC-5')">UTC-5 纽约</span>
+    <span class="tz-chip" onclick="setRefTz('UTC-8')">UTC-8 洛杉矶</span>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><h3>+ 添加运营活动</h3></div>
+      <div class="form-row">
+        <div><label>活动名称</label><input id="loName" placeholder="例：端午限时充值返利"></div>
+        <div><label>类型</label>
+          <select id="loType"><option>充值活动</option><option>限时任务</option><option>赛季活动</option><option>节日活动</option><option>社区活动</option><option>其他</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div><label>开始时间（游戏服务器时间）</label><input id="loStart" type="datetime-local"></div>
+        <div><label>结束时间</label><input id="loEnd" type="datetime-local"></div>
+      </div>
+      <div class="form-row">
+        <div><label>目标地区</label>
+          <select id="loRegion" multiple style="height:80px">
+            <option>台湾</option><option>香港</option><option>泰国</option><option>印尼</option>
+            <option>菲律宾</option><option>越南</option><option>巴西</option><option>墨西哥</option>
+            <option>美国</option><option>韩国</option><option>日本</option><option>全球</option>
+          </select>
+        </div>
+        <div><label>备注</label><textarea id="loNote" rows="2" placeholder="活动要点..."></textarea></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="addLiveops()">📅 添加活动</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>🕐 全球玩家活跃时段参考</h3></div>
+      <table style="font-size:0.8rem">
+        <tr><td>🇹🇼 台湾</td><td>20:00-23:00 (UTC+8)</td><td>晚间高峰</td></tr>
+        <tr><td>🇹🇭 泰国</td><td>19:00-22:00 (UTC+7)</td><td>晚间高峰</td></tr>
+        <tr><td>🇮🇩 印尼</td><td>12:00-14:00 / 20:00-22:00 (UTC+7)</td><td>午休+晚间</td></tr>
+        <tr><td>🇧🇷 巴西</td><td>19:00-23:00 (UTC-3)</td><td>晚间高峰</td></tr>
+        <tr><td>🇺🇸 美国</td><td>17:00-22:00 (UTC-5/-8)</td><td>下班后</td></tr>
+        <tr><td>🇰🇷 韩国</td><td>19:00-01:00 (UTC+9)</td><td>晚间高峰</td></tr>
+        <tr><td colspan="3" style="color:var(--orange);font-size:0.75rem">
+          ⚠️ 活动触发时间务必对齐目标地区的晚间高峰，否则参与率腰斩</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>活动日历</h3></div>
+    <div id="liveopsList"><div class="empty"><div class="empty-icon">📅</div>暂无运营活动，开始规划吧</div></div>
+  </div>
+</div>
+
+<!-- ============ NETWORK TAB ============ -->
+<div class="panel" id="panel-network">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><h3>+ 记录网络故障</h3></div>
+      <div class="form-row">
+        <div><label>受影响地区</label><select id="netRegion"><option>台湾</option><option>泰国</option><option>印尼</option><option>菲律宾</option><option>越南</option><option>巴西</option><option>墨西哥</option><option>美国</option><option>韩国</option></select></div>
+        <div><label>问题类型</label>
+          <select id="netType"><option>无法连接游戏</option><option>延迟/卡顿</option><option>CDN 超时</option><option>登录失败</option><option>更新/热更失败</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div><label>发生时间</label><input id="netTime" type="datetime-local"></div>
+        <div><label>受影响玩家数（估）</label><input id="netAffected" type="number" placeholder="估一个数量级"></div>
+      </div>
+      <div class="form-row"><div style="grid-column:1/-1"><label>玩家反馈原文</label><textarea id="netDesc" rows="2" placeholder="玩家怎么说的..."></textarea></div></div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="addNetwork()">📡 记录事件</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>🛡 网络问题应对 Checklist</h3></div>
+      <div style="font-size:0.82rem;line-height:2">
+        <input type="checkbox" id="chk1"> 确认是否为 CDN 节点故障（联系运维）<br>
+        <input type="checkbox" id="chk2"> 确认是否为区域性 ISP 屏蔽<br>
+        <input type="checkbox" id="chk3"> 准备备用 CDN 切换方案<br>
+        <input type="checkbox" id="chk4"> 确认 VPN 作为临时方案是否可行<br>
+        <input type="checkbox" id="chk5"> 发布游戏内公告 / Discord 通知<br>
+        <input type="checkbox" id="chk6"> 记录受影响玩家 ID，事后发补偿<br>
+        <input type="checkbox" id="chk7"> 事后复盘：根因 + 预防措施<br>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="document.querySelectorAll('#chk1,#chk2,#chk3,#chk4,#chk5,#chk6,#chk7').forEach(c=>c.checked=false)">🔄 重置 Checklist</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>网络事件记录</h3></div>
+    <div id="networkList"><div class="empty"><div class="empty-icon">📡</div>暂无网络事件记录</div></div>
+  </div>
+</div>
+
+<!-- ============ ANALYTICS TAB ============ -->
+<div class="panel" id="panel-analytics">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><h3>📊 掉单渠道分布</h3></div>
+      <div id="channelChart" style="min-height:200px"><div class="empty">暂无数据</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>📊 掉单地区分布</h3></div>
+      <div id="regionChart" style="min-height:200px"><div class="empty">暂无数据</div></div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><h3>⏱ 平均处理时长</h3></div>
+      <div style="font-size:2rem;font-weight:700" id="avgResolution">--</div>
+      <div style="font-size:0.8rem;color:var(--text2)">目标: &lt; 4 小时</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>📋 反馈分类汇总</h3></div>
+      <div id="fbSummaryChart" style="min-height:150px"><div class="empty">暂无数据</div></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- container -->
+
+<script>
+// ==================== DATA STORE (API-first, localStorage fallback) ====================
+const STORAGE_KEY = 'game_ops_workbench';
+const API_BASE = window.location.protocol === 'file:' ? null : '';
+
+let _data = { payments:[], feedbacks:[], liveops:[], networks:[] };
+let _dataVersion = 0;
+
+function loadLocal() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { payments:[], feedbacks:[], liveops:[], networks:[] }; }
+  catch(e) { return { payments:[], feedbacks:[], liveops:[], networks:[] }; }
+}
+function saveLocal(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+async function fetchFromServer() {
+  if (API_BASE === null) return null;
+  try {
+    const res = await fetch(API_BASE + '/api/data');
+    if (!res.ok) throw new Error('API error');
+    return await res.json();
+  } catch(e) { return null; }
+}
+
+async function postToServer(path, body) {
+  if (API_BASE === null) return false;
+  try {
+    const res = await fetch(API_BASE + path, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    return res.ok;
+  } catch(e) { return false; }
+}
+
+async function putToServer(path, body) {
+  if (API_BASE === null) return false;
+  try {
+    const res = await fetch(API_BASE + path, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    return res.ok;
+  } catch(e) { return false; }
+}
+
+async function refreshData() {
+  const serverData = await fetchFromServer();
+  if (serverData) {
+    _data = serverData;
+    _dataVersion++;
+    // Also sync to local as cache
+    saveLocal(serverData);
+  } else {
+    // Offline fallback
+    _data = loadLocal();
+  }
+  renderAll();
+}
+
+// ==================== PAYMENT ====================
+async function addPayment() {
+  const now = new Date();
+  const tz = parseInt(document.getElementById('payTz').value);
+  const reportLocal = document.getElementById('payReportTime').value;
+  const reportUTC = reportLocal ? new Date(reportLocal) : now;
+  const priority = document.getElementById('payPriority').value;
+  const slaHours = priority === 'high' ? 1 : (priority === 'mid' ? 4 : 24);
+
+  const payment = {
+    id: 'PAY-' + Date.now().toString(36).toUpperCase(),
+    charId: document.getElementById('payCharId').value || '',
+    accountId: document.getElementById('payAccountId').value || '',
+    charName: document.getElementById('payCharName').value || '',
+    server: document.getElementById('payServer').value || '',
+    orderId: document.getElementById('payOrderId').value || '',
+    channel: document.getElementById('payChannel').value,
+    amount: parseFloat(document.getElementById('payAmount').value) || 0,
+    region: document.getElementById('payRegion').value,
+    tz: tz,
+    priority: priority,
+    reportTime: reportUTC.toISOString(),
+    reportLocal: reportLocal,
+    slaDeadline: new Date(now.getTime() + slaHours * 3600000).toISOString(),
+    slaHours: slaHours,
+    desc: document.getElementById('payDesc').value,
+    status: 'pending',
+    createdAt: now.toISOString(),
+    resolvedAt: null,
+    notes: ''
+  };
+
+  const ok = await postToServer('/api/payments', payment);
+  if (!ok) {
+    // Fallback: save locally
+    const data = loadLocal();
+    data.payments.unshift(payment);
+    saveLocal(data);
+  }
+  clearPaymentForm();
+  await refreshData();
+}
+
+async function updatePaymentStatus(id, status) {
+  const now = new Date().toISOString();
+  const p = _data.payments.find(p => p.id === id);
+  const body = { status, resolvedAt: status === 'done' ? now : (p ? p.resolvedAt : null), notes: p ? (p.notes || '') : '' };
+  const ok = await putToServer('/api/payments/' + id, body);
+  if (!ok) {
+    const data = loadLocal();
+    const lp = data.payments.find(p => p.id === id);
+    if (lp) { lp.status = status; if (status === 'done') lp.resolvedAt = now; saveLocal(data); }
+  }
+  await refreshData();
+}
+
+function clearPaymentForm() {
+  ['payCharId','payAccountId','payCharName','payServer','payOrderId','payAmount','payDesc'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('payReportTime').value = '';
+}
+
+// ==================== FEEDBACK ====================
+async function addFeedback() {
+  const feedback = {
+    id: 'FB-' + Date.now().toString(36).toUpperCase(),
+    source: document.getElementById('fbSource').value,
+    category: document.getElementById('fbCategory').value,
+    charId: document.getElementById('fbCharId').value,
+    accountId: document.getElementById('fbAccountId').value,
+    charName: document.getElementById('fbCharName').value,
+    server: document.getElementById('fbServer').value,
+    region: document.getElementById('fbRegion').value,
+    content: document.getElementById('fbContent').value,
+    impact: document.getElementById('fbImpact').value,
+    severity: document.getElementById('fbSeverity').value,
+    createdAt: new Date().toISOString(),
+    status: 'open'
+  };
+  const ok = await postToServer('/api/feedbacks', feedback);
+  if (!ok) {
+    const data = loadLocal();
+    data.feedbacks.unshift(feedback);
+    saveLocal(data);
+  }
+  document.getElementById('fbContent').value = '';
+  document.getElementById('fbCharId').value = '';
+  document.getElementById('fbAccountId').value = '';
+  document.getElementById('fbCharName').value = '';
+  document.getElementById('fbServer').value = '';
+  await refreshData();
+}
+
+// ==================== LIVEOPS ====================
+async function addLiveops() {
+  const regionSelect = document.getElementById('loRegion');
+  const regions = Array.from(regionSelect.selectedOptions).map(o => o.value);
+  const lo = {
+    id: 'LO-' + Date.now().toString(36).toUpperCase(),
+    name: document.getElementById('loName').value,
+    type: document.getElementById('loType').value,
+    start: document.getElementById('loStart').value,
+    end: document.getElementById('loEnd').value,
+    regions: regions,
+    note: document.getElementById('loNote').value,
+    createdAt: new Date().toISOString()
+  };
+  const ok = await postToServer('/api/liveops', lo);
+  if (!ok) {
+    const data = loadLocal();
+    data.liveops.unshift(lo);
+    saveLocal(data);
+  }
+  document.getElementById('loName').value = '';
+  document.getElementById('loNote').value = '';
+  await refreshData();
+}
+
+// ==================== NETWORK ====================
+async function addNetwork() {
+  const nw = {
+    id: 'NET-' + Date.now().toString(36).toUpperCase(),
+    region: document.getElementById('netRegion').value,
+    type: document.getElementById('netType').value,
+    time: document.getElementById('netTime').value,
+    affected: parseInt(document.getElementById('netAffected').value) || 0,
+    desc: document.getElementById('netDesc').value,
+    createdAt: new Date().toISOString()
+  };
+  const ok = await postToServer('/api/networks', nw);
+  if (!ok) {
+    const data = loadLocal();
+    data.networks.unshift(nw);
+    saveLocal(data);
+  }
+  document.getElementById('netDesc').value = '';
+  document.getElementById('netAffected').value = '';
+  await refreshData();
+}
+
+// ==================== RENDER ====================
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const tabs = { payment:0, feedback:1, liveops:2, network:3, analytics:4 };
+  document.querySelectorAll('.tab')[tabs[name]].classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+  renderAll();
+}
+
+function renderAll() {
+  renderStats(_data);
+  renderPayments(_data);
+  renderFeedbacks(_data);
+  renderLiveops(_data);
+  renderNetworks(_data);
+  if (document.getElementById('panel-analytics').classList.contains('active')) renderAnalytics(_data);
+}
+
+function renderStats(data) {
+  const now = new Date();
+  let pending = 0, overdue = 0, resolvedThisWeek = 0, openFeedback = 0;
+  const weekAgo = new Date(now.getTime() - 7*86400000);
+
+  (data.payments || []).forEach(p => {
+    if (p.status === 'pending' || p.status === 'progress') pending++;
+    if ((p.status === 'pending' || p.status === 'progress') && p.slaDeadline && new Date(p.slaDeadline) < now) overdue++;
+    if (p.status === 'done' && p.resolvedAt && new Date(p.resolvedAt) > weekAgo) resolvedThisWeek++;
+  });
+  (data.feedbacks || []).forEach(f => { if (f.status === 'open') openFeedback++; });
+
+  document.getElementById('statPending').textContent = pending;
+  document.getElementById('statOverdue').textContent = overdue;
+  document.getElementById('statResolved').textContent = resolvedThisWeek;
+  document.getElementById('statFeedback').textContent = openFeedback;
+}
+
+function getSLAColor(deadline) {
+  if (!deadline) return 'good';
+  const now = new Date();
+  const d = new Date(deadline);
+  const hoursLeft = (d - now) / 3600000;
+  if (hoursLeft < 0) return 'bad';
+  if (hoursLeft < 1) return 'warn';
+  return 'good';
+}
+
+function getSLAPercent(deadline, slaHours) {
+  if (!deadline) return 0;
+  const now = new Date();
+  const created = new Date(new Date(deadline).getTime() - (slaHours || 4) * 3600000);
+  const total = (slaHours || 4) * 3600000;
+  const elapsed = now - created;
+  return Math.min(100, Math.max(0, (elapsed / total) * 100));
+}
+
+function statusBadge(status) {
+  const map = { pending:'badge-pending', progress:'badge-progress', done:'badge-done' };
+  const labels = { pending:'待处理', progress:'处理中', done:'已完成' };
+  return `<span class="badge ${map[status] || 'badge-pending'}">${labels[status] || status}</span>`;
+}
+
+function priorityBadge(p) {
+  const map = { high:'badge-high', mid:'badge-mid', low:'badge-low' };
+  const labels = { high:'🔴 高', mid:'🟡 中', low:'🟢 低' };
+  return `<span class="badge ${map[p] || 'badge-mid'}">${labels[p] || p}</span>`;
+}
+
+function formatTime(iso) {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  return d.toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+function renderPayments(data) {
+  const filter = document.getElementById('payFilter')?.value || 'all';
+  let items = data.payments || [];
+  const now = new Date();
+
+  if (filter === 'pending') items = items.filter(p => p.status === 'pending');
+  else if (filter === 'progress') items = items.filter(p => p.status === 'progress');
+  else if (filter === 'done') items = items.filter(p => p.status === 'done');
+  else if (filter === 'overdue') items = items.filter(p => (p.status === 'pending' || p.status === 'progress') && p.slaDeadline && new Date(p.slaDeadline) < now);
+
+  if (items.length === 0) {
+    document.getElementById('paymentList').innerHTML = '<div class="empty"><div class="empty-icon">📭</div>暂无匹配工单</div>';
+    return;
+  }
+
+  let html = `<table><tr>
+    <th>工单号</th><th>角色ID</th><th>角色名</th><th>区服</th><th>订单号</th><th>渠道</th><th>金额</th>
+    <th>地区</th><th>优先级</th><th>状态</th><th>SLA 剩余</th><th>操作</th></tr>`;
+
+  items.forEach(p => {
+    const slaColor = getSLAColor(p.slaDeadline);
+    const slaPct = getSLAPercent(p.slaDeadline, p.slaHours);
+    const hoursLeft = p.slaDeadline ? Math.round((new Date(p.slaDeadline) - new Date()) / 3600000 * 10) / 10 : 0;
+    const slaText = p.status === 'done' ? '✅ 已完成' : (hoursLeft < 0 ? `⚠ 超时 ${Math.abs(Math.round(hoursLeft))}h` : `⏱ 剩余 ${hoursLeft}h`);
+
+    html += `<tr>
+      <td style="font-family:monospace;font-size:0.8rem">${p.id}</td>
+      <td>${p.charId || '--'}</td>
+      <td>${p.charName || '--'}</td>
+      <td>${p.server || '--'}</td>
+      <td style="font-family:monospace;font-size:0.75rem">${p.orderId || '--'}</td>
+      <td>${p.channel || '--'}</td>
+      <td>$${(p.amount || 0).toFixed(2)}</td>
+      <td>${p.region || '--'}</td>
+      <td>${priorityBadge(p.priority)}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td>
+        <div style="font-size:0.75rem;color:var(--${slaColor==='bad'?'red':slaColor==='warn'?'orange':'text2'})">${slaText}</div>
+        ${p.status !== 'done' ? `<div class="sla-bar"><div class="sla-fill ${slaColor}" style="width:${slaPct}%"></div></div>` : ''}
+      </td>
+      <td>
+        ${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="updatePaymentStatus('${p.id}','progress')">▶ 处理</button>` : ''}
+        ${p.status === 'progress' ? `<button class="btn btn-primary btn-sm" onclick="updatePaymentStatus('${p.id}','done')">✅ 完成</button>` : ''}
+        ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="addPaymentNote('${p.id}')">📝</button>` : ''}
+      </td></tr>`;
+  });
+
+  html += '</table>';
+  document.getElementById('paymentList').innerHTML = html;
+}
+
+async function addPaymentNote(id) {
+  const note = prompt('添加备注：');
+  if (!note) return;
+  const p = _data.payments.find(p => p.id === id);
+  if (p) {
+    const newNotes = (p.notes || '') + '\n[' + new Date().toLocaleString('zh-CN') + '] ' + note;
+    const ok = await putToServer('/api/payments/' + id, { status: p.status, resolvedAt: p.resolvedAt, notes: newNotes });
+    if (!ok) {
+      const data = loadLocal();
+      const lp = data.payments.find(p => p.id === id);
+      if (lp) lp.notes = newNotes; saveLocal(data);
+    }
+    await refreshData();
+  }
+}
+
+function renderFeedbacks(data) {
+  const container = document.getElementById('feedbackList');
+  const items = data.feedbacks || [];
+  if (items.length === 0) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>暂无反馈记录</div>';
+    document.getElementById('fbCategoryFilter').innerHTML = '';
+    return;
+  }
+
+  const cats = {};
+  items.forEach(f => { cats[f.category] = (cats[f.category] || 0) + 1; });
+  let catHtml = `<span class="feedback-cat${_fbFilterCat === 'all' ? ' active' : ''}" onclick="filterFeedbackByCat('all', this)">全部 <span class="count">${items.length}</span></span>`;
+  for (const [cat, count] of Object.entries(cats)) {
+    catHtml += `<span class="feedback-cat${_fbFilterCat === cat ? ' active' : ''}" onclick="filterFeedbackByCat('${cat}', this)">${cat} <span class="count">${count}</span></span>`;
+  }
+  document.getElementById('fbCategoryFilter').innerHTML = catHtml;
+
+  let html = '<table><tr><th>来源</th><th>分类</th><th>角色ID</th><th>角色名</th><th>区服</th><th>地区</th><th>严重程度</th><th>影响面</th><th>反馈内容</th><th>时间</th></tr>';
+  const filtered = _fbFilterCat === 'all' ? items : items.filter(f => f.category === _fbFilterCat);
+
+  filtered.forEach(f => {
+    const sevMap = { critical:'🔴 严重', major:'🟡 重要', minor:'🟢 轻微' };
+    const impMap = { wide:'大规模', some:'部分', single:'个别' };
+    html += `<tr>
+      <td>${f.source || '--'}</td><td><span class="badge badge-mid">${f.category || '--'}</span></td>
+      <td>${f.charId || '--'}</td><td>${f.charName || '--'}</td><td>${f.server || '--'}</td>
+      <td>${f.region || '--'}</td><td>${sevMap[f.severity] || f.severity}</td>
+      <td>${impMap[f.impact] || f.impact}</td>
+      <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.content}">${f.content}</td>
+      <td style="white-space:nowrap">${formatTime(f.createdAt)}</td></tr>`;
+  });
+  html += '</table>';
+  container.innerHTML = html;
+}
+
+let _fbFilterCat = 'all';
+function filterFeedbackByCat(cat, el) {
+  _fbFilterCat = cat;
+  document.querySelectorAll('#fbCategoryFilter .feedback-cat').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderFeedbacks(_data);
+}
+
+function renderLiveops(data) {
+  const container = document.getElementById('liveopsList');
+  const items = data.liveops || [];
+  if (items.length === 0) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📅</div>暂无运营活动，开始规划吧</div>';
+    return;
+  }
+  let html = '<table><tr><th>活动名称</th><th>类型</th><th>开始</th><th>结束</th><th>目标地区</th><th>备注</th></tr>';
+  items.forEach(lo => {
+    const regions = Array.isArray(lo.regions) ? lo.regions : (typeof lo.regions === 'string' ? JSON.parse(lo.regions || '[]') : []);
+    html += `<tr>
+      <td><b>${lo.name || '--'}</b></td><td>${lo.type || '--'}</td>
+      <td>${lo.start || '--'}</td><td>${lo.end || '--'}</td>
+      <td>${regions.join(', ')}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lo.note || '--'}</td></tr>`;
+  });
+  html += '</table>';
+  container.innerHTML = html;
+}
+
+function renderNetworks(data) {
+  const container = document.getElementById('networkList');
+  const items = data.networks || [];
+  if (items.length === 0) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📡</div>暂无网络事件记录</div>';
+    return;
+  }
+  let html = '<table><tr><th>地区</th><th>类型</th><th>时间</th><th>受影响</th><th>描述</th></tr>';
+  items.forEach(n => {
+    html += `<tr>
+      <td>${n.region || '--'}</td><td>${n.type || '--'}</td><td>${n.time || '--'}</td>
+      <td>${n.affected || 0} 人</td><td>${n.desc || '--'}</td></tr>`;
+  });
+  html += '</table>';
+  container.innerHTML = html;
+}
+
+function renderAnalytics(data) {
+  const payments = data.payments || [];
+  const feedbacks = data.feedbacks || [];
+
+  const channels = {};
+  payments.forEach(p => { channels[p.channel || '未知'] = (channels[p.channel || '未知'] || 0) + 1; });
+  let chHtml = '';
+  for (const [ch, count] of Object.entries(channels)) {
+    const pct = payments.length ? Math.round(count / payments.length * 100) : 0;
+    chHtml += `<div style="margin:8px 0;display:flex;align-items:center;gap:8px">
+      <span style="width:120px;font-size:0.8rem">${ch}</span>
+      <div style="flex:1;height:20px;background:var(--surface2);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px;transition:width 0.5s"></div>
+      </div>
+      <span style="font-size:0.8rem;min-width:40px">${count}</span></div>`;
+  }
+  document.getElementById('channelChart').innerHTML = chHtml || '<div class="empty">暂无数据</div>';
+
+  const regions = {};
+  payments.forEach(p => { regions[p.region || '未知'] = (regions[p.region || '未知'] || 0) + 1; });
+  let regHtml = '';
+  for (const [reg, count] of Object.entries(regions)) {
+    const pct = payments.length ? Math.round(count / payments.length * 100) : 0;
+    regHtml += `<div style="margin:8px 0;display:flex;align-items:center;gap:8px">
+      <span style="width:80px;font-size:0.8rem">${reg}</span>
+      <div style="flex:1;height:20px;background:var(--surface2);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:var(--pink);border-radius:4px;transition:width 0.5s"></div>
+      </div>
+      <span style="font-size:0.8rem;min-width:40px">${count}</span></div>`;
+  }
+  document.getElementById('regionChart').innerHTML = regHtml || '<div class="empty">暂无数据</div>';
+
+  const resolved = payments.filter(p => p.status === 'done' && p.resolvedAt);
+  if (resolved.length > 0) {
+    let totalMin = 0;
+    resolved.forEach(p => {
+      totalMin += (new Date(p.resolvedAt) - new Date(p.createdAt)) / 60000;
+    });
+    const avgMin = Math.round(totalMin / resolved.length);
+    const h = Math.floor(avgMin / 60);
+    const m = avgMin % 60;
+    document.getElementById('avgResolution').textContent = `${h}h ${m}m`;
+    document.getElementById('avgResolution').style.color = avgMin < 240 ? 'var(--green)' : 'var(--red)';
+  } else {
+    document.getElementById('avgResolution').textContent = '--';
+  }
+
+  const fbCats = {};
+  feedbacks.forEach(f => { fbCats[f.category || '未知'] = (fbCats[f.category || '未知'] || 0) + 1; });
+  let fbHtml = '';
+  for (const [cat, count] of Object.entries(fbCats)) {
+    fbHtml += `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:0.85rem">
+      <span>${cat}</span><span style="color:var(--accent2)">${count}</span></div>`;
+  }
+  document.getElementById('fbSummaryChart').innerHTML = fbHtml || '<div class="empty">暂无数据</div>';
+}
+
+// ==================== TIMEZONE ====================
+function setRefTz(tz) {
+  document.querySelectorAll('.tz-chip').forEach(c => c.classList.remove('active'));
+  [...document.querySelectorAll('.tz-chip')].forEach(c => {
+    if (c.textContent.includes(tz)) c.classList.add('active');
+  });
+}
+
+// ==================== CLOCK ====================
+function updateClock() {
+  const now = new Date();
+  document.getElementById('liveClock').textContent =
+    '🕐 ' + now.toLocaleString('zh-CN', { hour12: false }) +
+    ' | UTC' + (now.getTimezoneOffset() > 0 ? '-' : '+') +
+    Math.abs(Math.round(now.getTimezoneOffset() / 60));
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ==================== EXPORT ====================
+function exportAll() {
+  const blob = new Blob([JSON.stringify(_data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `gamepulse-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+async function resetAll() {
+  if (!confirm('确定要清空所有数据吗？此操作不可撤销。\n\n建议先点击"导出数据"备份。')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  if (API_BASE !== null) {
+    // Server-side reset: just clear local, server data stays (no DELETE endpoint)
+  }
+  _data = { payments:[], feedbacks:[], liveops:[], networks:[] };
+  renderAll();
+}
+
+// ==================== INIT ====================
+(async function init() {
+  // Load from local cache first for instant render
+  _data = loadLocal();
+  renderAll();
+
+  // Then fetch from server
+  await refreshData();
+
+  // Poll for collaborative updates every 3 seconds
+  setInterval(async () => {
+    const serverData = await fetchFromServer();
+    if (serverData) {
+      const oldVer = _dataVersion;
+      _data = serverData;
+      _dataVersion++;
+      if (_dataVersion > oldVer + 1) {
+        // Only re-render if data changed
+        renderAll();
+      }
+    }
+  }, 3000);
+
+  // SLA badge refresh every 30s (doesn't need full re-render)
+  setInterval(() => { if (_data.payments.length) renderPayments(_data); }, 30000);
+})();
+</script>
+</body>
+</html>
