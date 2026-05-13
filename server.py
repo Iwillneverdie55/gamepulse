@@ -5,8 +5,9 @@ import sqlite3
 from contextlib import contextmanager
 from flask import Flask, request, jsonify, send_from_directory
 
-app = Flask(__name__, static_folder=".")
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gamepulse.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, static_folder=BASE_DIR)
+DB_PATH = os.path.join(BASE_DIR, "gamepulse.db")
 
 @contextmanager
 def get_db():
