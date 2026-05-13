@@ -140,6 +140,17 @@ label { display:block; font-size:0.8rem; color:var(--text2); margin-bottom:4px; 
 .sla-fill.warn { background:var(--orange); }
 .sla-fill.bad { background:var(--red); }
 
+/* Role switcher */
+.role-switcher { display:flex; gap:4px; background:var(--surface2); padding:3px; border-radius:8px; }
+
+/* Expandable row */
+.expand-row { cursor:pointer; }
+.expand-row:hover td { background:var(--surface2); }
+.expand-detail { display:none; background:var(--surface2); }
+.expand-detail.show { display:table-row; }
+.expand-detail td { padding:12px 16px; font-size:0.82rem; color:var(--text2); line-height:1.8; border-bottom:2px solid var(--border); }
+.expand-detail td b { color:var(--text); }
+
 /* Two column layout */
 .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 
@@ -177,8 +188,12 @@ label { display:block; font-size:0.8rem; color:var(--text2); margin-bottom:4px; 
 
 <!-- Header -->
 <div class="header">
-  <h1>🎮 海外游戏运营工作台 <span>GamePulse</span></h1>
+  <h1>⚡️ 海外游戏运营工作台 <span>GamePulse</span></h1>
   <div class="header-actions">
+    <div class="role-switcher" id="roleSwitcher">
+      <button class="btn btn-primary btn-sm" data-role="cs" onclick="switchRole('cs')">🎧 客服模式</button>
+      <button class="btn btn-ghost btn-sm" data-role="ops" onclick="switchRole('ops')">📊 运营模式</button>
+    </div>
     <div class="current-time" id="liveClock">--</div>
     <button class="btn btn-ghost btn-sm" onclick="exportAll()">📤 导出数据</button>
     <button class="btn btn-ghost btn-sm" onclick="resetAll()">🗑 清空</button>
@@ -267,7 +282,7 @@ label { display:block; font-size:0.8rem; color:var(--text2); margin-bottom:4px; 
           <select id="payPriority"><option value="high">🔴 高 (大R/高金额)</option><option value="mid" selected>🟡 中</option><option value="low">🟢 低</option></select>
         </div>
       </div>
-      <div class="form-row"><div style="grid-column:1/-1"><label>玩家描述</label><textarea id="payDesc" rows="2" placeholder="玩家的投诉原文..."></textarea></div></div>
+      <div class="form-row"><div style="grid-column:1/-1"><label>问题描述</label><textarea id="payDesc" rows="2" placeholder="玩家的投诉原文..."></textarea></div></div>
       <div class="form-actions">
         <button class="btn btn-primary" onclick="addPayment()">✅ 创建工单</button>
       </div>
@@ -505,6 +520,15 @@ const API_BASE = window.location.protocol === 'file:' ? null : '';
 
 let _data = { payments:[], feedbacks:[], liveops:[], networks:[] };
 let _dataVersion = 0;
+let currentRole = 'cs'; // 'cs' = 客服, 'ops' = 运营
+
+function switchRole(role) {
+  currentRole = role;
+  document.querySelectorAll('#roleSwitcher button').forEach(b => {
+    b.className = b.dataset.role === role ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  });
+  renderAll();
+}
 
 function loadLocal() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { payments:[], feedbacks:[], liveops:[], networks:[] }; }
@@ -721,20 +745,55 @@ function renderAll() {
 
 function renderStats(data) {
   const now = new Date();
-  let pending = 0, overdue = 0, resolvedThisWeek = 0, openFeedback = 0;
   const weekAgo = new Date(now.getTime() - 7*86400000);
+  const payments = data.payments || [];
+  const feedbacks = data.feedbacks || [];
 
-  (data.payments || []).forEach(p => {
-    if (p.status === 'pending' || p.status === 'progress') pending++;
-    if ((p.status === 'pending' || p.status === 'progress') && p.slaDeadline && new Date(p.slaDeadline) < now) overdue++;
-    if (p.status === 'done' && p.resolvedAt && new Date(p.resolvedAt) > weekAgo) resolvedThisWeek++;
-  });
-  (data.feedbacks || []).forEach(f => { if (f.status === 'open') openFeedback++; });
+  if (currentRole === 'cs') {
+    let pending = 0, overdue = 0, resolvedThisWeek = 0, openFeedback = 0;
+    payments.forEach(p => {
+      if (p.status === 'pending' || p.status === 'progress') pending++;
+      if ((p.status === 'pending' || p.status === 'progress') && p.slaDeadline && new Date(p.slaDeadline) < now) overdue++;
+      if (p.status === 'done' && p.resolvedAt && new Date(p.resolvedAt) > weekAgo) resolvedThisWeek++;
+    });
+    feedbacks.forEach(f => { if (f.status === 'open') openFeedback++; });
+    document.getElementById('statPending').textContent = pending;
+    document.getElementById('statOverdue').textContent = overdue;
+    document.getElementById('statResolved').textContent = resolvedThisWeek;
+    document.getElementById('statFeedback').textContent = openFeedback;
+    document.querySelectorAll('#panel-payment .stat-label')[0].textContent = '未处理掉单';
+    document.querySelectorAll('#panel-payment .stat-label')[1] ? null : null; // these are global stats
+  } else {
+    // Ops mode: different stats
+    let toVerify = 0, toReissue = 0, overdue = 0, doneToday = 0;
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    payments.forEach(p => {
+      if (p.status === 'progress') toVerify++;
+      if (p.status === 'verified') toReissue++;
+      if ((p.status === 'progress' || p.status === 'verified') && p.slaDeadline && new Date(p.slaDeadline) < now) overdue++;
+      if (p.status === 'done' && new Date(p.resolvedAt) >= today) doneToday++;
+    });
+    document.getElementById('statPending').textContent = toVerify;
+    document.getElementById('statOverdue').textContent = overdue;
+    document.getElementById('statResolved').textContent = doneToday;
+    document.getElementById('statFeedback').textContent = toReissue;
+  }
 
-  document.getElementById('statPending').textContent = pending;
-  document.getElementById('statOverdue').textContent = overdue;
-  document.getElementById('statResolved').textContent = resolvedThisWeek;
-  document.getElementById('statFeedback').textContent = openFeedback;
+  // Update stat labels based on role
+  const labels = document.querySelectorAll('.stat-label');
+  if (labels.length >= 4) {
+    if (currentRole === 'ops') {
+      labels[0].textContent = '待核实';
+      labels[1].textContent = 'SLA 超时';
+      labels[2].textContent = '今日已完成';
+      labels[3].textContent = '待补发';
+    } else {
+      labels[0].textContent = '未处理掉单';
+      labels[1].textContent = 'SLA 超时';
+      labels[2].textContent = '本周已完成';
+      labels[3].textContent = '待处理反馈';
+    }
+  }
 }
 
 function getSLAColor(deadline) {
@@ -757,8 +816,14 @@ function getSLAPercent(deadline, slaHours) {
 }
 
 function statusBadge(status) {
-  const map = { pending:'badge-pending', progress:'badge-progress', done:'badge-done' };
-  const labels = { pending:'待处理', progress:'处理中', done:'已完成' };
+  const map = {
+    pending:'badge-pending', progress:'badge-progress',
+    verified:'badge-progress', reissued:'badge-progress', done:'badge-done'
+  };
+  const labels = {
+    pending:'待处理', progress:'处理中',
+    verified:'已核实', reissued:'已补发', done:'已完成'
+  };
   return `<span class="badge ${map[status] || 'badge-pending'}">${labels[status] || status}</span>`;
 }
 
@@ -790,7 +855,7 @@ function renderPayments(data) {
   }
 
   let html = `<table><tr>
-    <th>工单号</th><th>角色ID</th><th>角色名</th><th>区服</th><th>订单号</th><th>渠道</th><th>金额</th>
+    <th style="width:24px"></th><th>工单号</th><th>角色ID</th><th>角色名</th><th>区服</th><th>订单号</th><th>渠道</th><th>金额</th>
     <th>地区</th><th>优先级</th><th>状态</th><th>SLA 剩余</th><th>操作</th></tr>`;
 
   items.forEach(p => {
@@ -798,8 +863,10 @@ function renderPayments(data) {
     const slaPct = getSLAPercent(p.slaDeadline, p.slaHours);
     const hoursLeft = p.slaDeadline ? Math.round((new Date(p.slaDeadline) - new Date()) / 3600000 * 10) / 10 : 0;
     const slaText = p.status === 'done' ? '✅ 已完成' : (hoursLeft < 0 ? `⚠ 超时 ${Math.abs(Math.round(hoursLeft))}h` : `⏱ 剩余 ${hoursLeft}h`);
+    const details = [p.desc, p.notes].filter(Boolean).join('') || '暂无详情';
 
-    html += `<tr>
+    html += `<tr class="expand-row" onclick="toggleExpand('${p.id}')" title="点击展开详情">
+      <td style="text-align:center;font-size:0.7rem;color:var(--text2)">▶</td>
       <td style="font-family:monospace;font-size:0.8rem">${p.id}</td>
       <td>${p.charId || '--'}</td>
       <td>${p.charName || '--'}</td>
@@ -815,9 +882,21 @@ function renderPayments(data) {
         ${p.status !== 'done' ? `<div class="sla-bar"><div class="sla-fill ${slaColor}" style="width:${slaPct}%"></div></div>` : ''}
       </td>
       <td>
-        ${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="updatePaymentStatus('${p.id}','progress')">▶ 处理</button>` : ''}
-        ${p.status === 'progress' ? `<button class="btn btn-primary btn-sm" onclick="updatePaymentStatus('${p.id}','done')">✅ 完成</button>` : ''}
-        ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="addPaymentNote('${p.id}')">📝</button>` : ''}
+        ${currentRole === 'cs' ? `
+          ${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();updatePaymentStatus('${p.id}','progress')">▶ 转运营</button>` : ''}
+          ${p.status === 'progress' || p.status === 'verified' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();addPaymentNote('${p.id}')">📝</button>` : ''}
+        ` : `
+          ${p.status === 'progress' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();opsAction('${p.id}','verify')">✅ 已核实</button>` : ''}
+          ${p.status === 'verified' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();opsAction('${p.id}','reissue')">💰 已补发</button>` : ''}
+          ${p.status === 'reissued' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();opsAction('${p.id}','done')">✔ 完成</button>` : ''}
+          ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();addPaymentNote('${p.id}')">📝</button>` : ''}
+        `}
+      </td></tr>
+    <tr class="expand-detail" id="detail-${p.id}">
+      <td></td><td colspan="13">
+        <b>问题描述：</b>${p.desc || '--'}<br>
+        <b>备注记录：</b>${p.notes ? p.notes.replace(/\n/g, '<br>') : '暂无'}
+        ${p.handler ? `<br><b>处理人：</b>${p.handler}` : ''}
       </td></tr>`;
   });
 
@@ -825,12 +904,20 @@ function renderPayments(data) {
   document.getElementById('paymentList').innerHTML = html;
 }
 
+function toggleExpand(id) {
+  const el = document.getElementById('detail-' + id);
+  if (el) el.classList.toggle('show');
+}
+}
+
 async function addPaymentNote(id) {
+  const handler = currentRole === 'ops' ? getHandler() : '';
   const note = prompt('添加备注：');
   if (!note) return;
   const p = _data.payments.find(p => p.id === id);
   if (p) {
-    const newNotes = (p.notes || '') + '\n[' + new Date().toLocaleString('zh-CN') + '] ' + note;
+    const label = handler ? `[${new Date().toLocaleString('zh-CN')}] ${handler}：${note}` : `[${new Date().toLocaleString('zh-CN')}] ${note}`;
+    const newNotes = (p.notes || '') + '\n' + label;
     const ok = await putToServer('/api/payments/' + id, { status: p.status, resolvedAt: p.resolvedAt, notes: newNotes });
     if (!ok) {
       const data = loadLocal();
@@ -1015,8 +1102,55 @@ async function resetAll() {
   renderAll();
 }
 
+// ==================== HANDLER ====================
+function getHandler() {
+  const saved = localStorage.getItem('gamepulse_handler');
+  if (saved) return saved;
+  const name = prompt('请输入你的名字（用于标记处理人）：');
+  if (name) localStorage.setItem('gamepulse_handler', name);
+  return name || '';
+}
+
+// ==================== OPS ACTIONS ====================
+async function opsAction(id, action) {
+  const handler = getHandler();
+  if (!handler) return;
+  const p = _data.payments.find(p => p.id === id);
+  if (!p) return;
+
+  const statusMap = { verify: 'verified', reissue: 'reissued', done: 'done' };
+  const newStatus = statusMap[action];
+  const now = new Date().toISOString();
+  const log = `\n[${new Date().toLocaleString('zh-CN')}] ${handler} ${action === 'verify' ? '核实订单' : action === 'reissue' ? '完成补发' : '确认完成'}`;
+  const newNotes = (p.notes || '') + log;
+
+  const ok = await putToServer('/api/payments/' + id, {
+    status: newStatus,
+    resolvedAt: newStatus === 'done' ? now : (p.resolvedAt || null),
+    notes: newNotes
+  });
+  if (!ok) {
+    const data = loadLocal();
+    const lp = data.payments.find(p => p.id === id);
+    if (lp) { lp.status = newStatus; lp.notes = newNotes; if (newStatus === 'done') lp.resolvedAt = now; saveLocal(data); }
+  }
+  await refreshData();
+}
+
 // ==================== INIT ====================
 (async function init() {
+  // Time confirmation on payment form
+  const payTimeInput = document.getElementById('payReportTime');
+  if (payTimeInput) {
+    payTimeInput.addEventListener('change', function() {
+      const d = new Date(this.value);
+      const tz = document.getElementById('payTz').value;
+      const tzLabel = { '8':'UTC+8', '7':'UTC+7', '9':'UTC+9', '-3':'UTC-3', '-6':'UTC-6', '-5':'UTC-5', '-8':'UTC-8' };
+      const msg = `确认投诉时间：\n${d.toLocaleString('zh-CN')}\n时区：${tzLabel[tz] || 'UTC+'+tz}`;
+      if (!confirm(msg)) { this.value = ''; }
+    });
+  }
+
   // Load from local cache first for instant render
   _data = loadLocal();
   renderAll();
