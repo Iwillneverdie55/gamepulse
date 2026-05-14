@@ -3,7 +3,7 @@ import json
 import os
 import sqlite3
 from contextlib import contextmanager
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=BASE_DIR)
@@ -163,6 +163,132 @@ def api_add_network():
               n.get("affected",0), n.get("desc",""), n.get("createdAt","")))
         conn.commit()
     return jsonify({"ok": True}), 201
+
+# ── Report ────────────────────────────────────────────
+
+@app.route("/api/report")
+def api_report():
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from datetime import datetime, timedelta
+
+    days = request.args.get("days", "7")
+    try:
+        days = int(days)
+    except ValueError:
+        days = 7
+    since = (datetime.utcnow() - timedelta(days=days)).isoformat() + "Z"
+
+    with get_db() as conn:
+        payments = [row_to_dict(r) for r in conn.execute(
+            "SELECT * FROM payments WHERE created_at >= ? AND status != 'deleted' ORDER BY created_at DESC", (since,)
+        ).fetchall()]
+        feedbacks = [row_to_dict(r) for r in conn.execute(
+            "SELECT * FROM feedbacks WHERE created_at >= ? ORDER BY created_at DESC", (since,)
+        ).fetchall()]
+
+    wb = Workbook()
+    header_font = Font(bold=True, size=11)
+    header_fill = PatternFill(start_color="6C5CE7", end_color="6C5CE7", fill_type="solid")
+    header_font_white = Font(bold=True, size=11, color="FFFFFF")
+    thin_border = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin')
+    )
+
+    def style_header(ws, row, cols):
+        for c in range(1, cols + 1):
+            cell = ws.cell(row=row, column=c)
+            cell.font = header_font_white
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = thin_border
+
+    # ── Sheet 1: Summary ──
+    ws1 = wb.active
+    ws1.title = "总览"
+    total = len(payments)
+    resolved = len([p for p in payments if p['status'] == 'done'])
+    overdue = len([p for p in payments if p['status'] != 'done' and p.get('slaDeadline') and datetime.fromisoformat(p['slaDeadline'].replace('Z','')) < datetime.utcnow()])
+    sla_rate = f"{round((total - overdue) / total * 100, 1)}%" if total > 0 else "N/A"
+    avg_min = 0
+    done_payments = [p for p in payments if p['status'] == 'done' and p.get('resolvedAt')]
+    if done_payments:
+        total_min = sum((datetime.fromisoformat(p['resolvedAt'].replace('Z','')) - datetime.fromisoformat(p['createdAt'].replace('Z',''))).total_seconds() / 60 for p in done_payments)
+        avg_min = round(total_min / len(done_payments))
+    avg_h = f"{avg_min // 60}h {avg_min % 60}m" if avg_min > 0 else "N/A"
+
+    ws1.merge_cells('A1:C1')
+    ws1.cell(row=1, column=1, value=f"GamePulse 运营报表（最近 {days} 天）").font = Font(bold=True, size=14)
+    ws1.cell(row=2, column=1, value=f"生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}").font = Font(italic=True, color="888888")
+
+    summary = [
+        ("工单总数", total), ("已处理", f"{resolved} ({round(resolved/total*100,1) if total else 0}%)"),
+        ("处理中", len([p for p in payments if p['status'] in ('pending','progress')])),
+        ("SLA 超时", overdue), ("SLA 达标率", sla_rate), ("平均处理时长", avg_h),
+        ("反馈总数", len(feedbacks)),
+    ]
+    for i, (label, val) in enumerate(summary, 4):
+        ws1.cell(row=i, column=1, value=label).font = Font(bold=True)
+        ws1.cell(row=i, column=2, value=str(val))
+    ws1.column_dimensions['A'].width = 18
+    ws1.column_dimensions['B'].width = 24
+
+    # ── Sheet 2: Details ──
+    ws2 = wb.create_sheet("工单明细")
+    headers2 = ["工单号","角色ID","角色名","区服","订单号","渠道","金额","地区","优先级","状态","问题描述","创建时间","处理耗时","SLA"]
+    for c, h in enumerate(headers2, 1):
+        ws2.cell(row=1, column=c, value=h)
+    style_header(ws2, 1, len(headers2))
+    for r, p in enumerate(payments, 2):
+        sla = "达标" if p['status'] == 'done' else ("超时" if p.get('slaDeadline') and datetime.fromisoformat(p['slaDeadline'].replace('Z','')) < datetime.utcnow() else "进行中")
+        duration = ""
+        if p['status'] == 'done' and p.get('resolvedAt'):
+            d = (datetime.fromisoformat(p['resolvedAt'].replace('Z','')) - datetime.fromisoformat(p['createdAt'].replace('Z',''))).total_seconds() / 60
+            duration = f"{int(d//60)}h {int(d%60)}m"
+        row_data = [p['id'], p.get('charId',''), p.get('charName',''), p.get('server',''), p.get('orderId',''),
+                    p.get('channel',''), p.get('amount',0), p.get('region',''), p.get('priority',''),
+                    {'pending':'待处理','progress':'处理中','done':'已完成','verified':'已核实','reissued':'已补发'}.get(p['status'],p['status']),
+                    p.get('desc',''), p['createdAt'][:16] if p.get('createdAt') else '', duration, sla]
+        for c, v in enumerate(row_data, 1):
+            ws2.cell(row=r, column=c, value=v).border = thin_border
+    for c in range(1, len(headers2)+1):
+        ws2.column_dimensions[chr(64+c) if c <= 26 else 'A'].width = 14
+
+    # ── Sheet 3: Analysis ──
+    ws3 = wb.create_sheet("分析")
+    ws3.cell(row=1, column=1, value="渠道分布").font = header_font
+    channels = {}
+    for p in payments: channels[p.get('channel','未知')] = channels.get(p.get('channel','未知'), 0) + 1
+    for i, (ch, cnt) in enumerate(sorted(channels.items(), key=lambda x: -x[1]), 2):
+        ws3.cell(row=i, column=1, value=ch)
+        ws3.cell(row=i, column=2, value=cnt)
+        ws3.cell(row=i, column=3, value=f"{round(cnt/total*100,1)}%" if total else "0%")
+
+    ws3.cell(row=1, column=5, value="地区分布").font = header_font
+    regions = {}
+    for p in payments: regions[p.get('region','未知')] = regions.get(p.get('region','未知'), 0) + 1
+    for i, (rg, cnt) in enumerate(sorted(regions.items(), key=lambda x: -x[1]), 2):
+        ws3.cell(row=i, column=5, value=rg)
+        ws3.cell(row=i, column=6, value=cnt)
+        ws3.cell(row=i, column=7, value=f"{round(cnt/total*100,1)}%" if total else "0%")
+
+    ws3.cell(row=1, column=9, value="反馈分类").font = header_font
+    fbcats = {}
+    for f in feedbacks: fbcats[f.get('category','未知')] = fbcats.get(f.get('category','未知'), 0) + 1
+    for i, (cat, cnt) in enumerate(sorted(fbcats.items(), key=lambda x: -x[1]), 2):
+        ws3.cell(row=i, column=9, value=cat)
+        ws3.cell(row=i, column=10, value=cnt)
+
+    for col in [1,5,9]:
+        ws3.column_dimensions[chr(64+col)].width = 16
+
+    from io import BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                     as_attachment=True, download_name=f"gamepulse_report_{days}d_{datetime.now().strftime('%Y%m%d')}.xlsx")
 
 # ── Static files ─────────────────────────────────────
 
