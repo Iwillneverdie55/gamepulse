@@ -140,9 +140,6 @@ label { display:block; font-size:0.8rem; color:var(--text2); margin-bottom:4px; 
 .sla-fill.warn { background:var(--orange); }
 .sla-fill.bad { background:var(--red); }
 
-/* Role switcher */
-.role-switcher { display:flex; gap:4px; background:var(--surface2); padding:3px; border-radius:8px; }
-
 /* Expandable row */
 .expand-row { cursor:pointer; }
 .expand-row:hover td { background:var(--surface2); }
@@ -190,10 +187,6 @@ label { display:block; font-size:0.8rem; color:var(--text2); margin-bottom:4px; 
 <div class="header">
   <h1>⚡️ 海外游戏运营工作台 <span>GamePulse</span></h1>
   <div class="header-actions">
-    <div class="role-switcher" id="roleSwitcher">
-      <button class="btn btn-primary btn-sm" data-role="cs" onclick="switchRole('cs')">🎧 客服模式</button>
-      <button class="btn btn-ghost btn-sm" data-role="ops" onclick="switchRole('ops')">📊 运营模式</button>
-    </div>
     <div class="current-time" id="liveClock">--</div>
     <button class="btn btn-ghost btn-sm" onclick="exportAll()">📤 导出数据</button>
     <button class="btn btn-ghost btn-sm" onclick="resetAll()">🗑 清空</button>
@@ -515,15 +508,7 @@ const API_BASE = window.location.protocol === 'file:' ? null : '';
 
 let _data = { payments:[], feedbacks:[], liveops:[], networks:[] };
 let _dataVersion = 0;
-let currentRole = 'cs'; // 'cs' = 客服, 'ops' = 运营
 
-function switchRole(role) {
-  currentRole = role;
-  document.querySelectorAll('#roleSwitcher button').forEach(b => {
-    b.className = b.dataset.role === role ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
-  });
-  renderAll();
-}
 
 function loadLocal() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { payments:[], feedbacks:[], liveops:[], networks:[] }; }
@@ -821,40 +806,17 @@ function renderStats(data) {
   const payments = data.payments || [];
   const feedbacks = data.feedbacks || [];
 
-  if (currentRole === 'cs') {
-    let pending = 0, overdue = 0, resolvedThisWeek = 0, openFeedback = 0;
-    payments.forEach(p => {
-      if (p.status === 'pending' || p.status === 'progress') pending++;
-      if ((p.status === 'pending' || p.status === 'progress') && p.slaDeadline && new Date(p.slaDeadline) < now) overdue++;
-      if (p.status === 'done' && p.resolvedAt && new Date(p.resolvedAt) > weekAgo) resolvedThisWeek++;
-    });
-    feedbacks.forEach(f => { if (f.status === 'open') openFeedback++; });
-    document.getElementById('statPending').textContent = pending;
-    document.getElementById('statOverdue').textContent = overdue;
-    document.getElementById('statResolved').textContent = resolvedThisWeek;
-    document.getElementById('statFeedback').textContent = openFeedback;
-    document.querySelectorAll('.stat-label')[0].textContent = '未处理掉单';
-    document.querySelectorAll('.stat-label')[1].textContent = 'SLA 超时';
-    document.querySelectorAll('.stat-label')[2].textContent = '本周已完成';
-    document.querySelectorAll('.stat-label')[3].textContent = '待处理反馈';
-  } else {
-    let toVerify = 0, toReissue = 0, overdue = 0, doneToday = 0;
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    payments.forEach(p => {
-      if (p.status === 'pending' || p.status === 'progress') toVerify++;
-      if (p.status === 'verified') toReissue++;
-      if ((p.status === 'progress' || p.status === 'verified') && p.slaDeadline && new Date(p.slaDeadline) < now) overdue++;
-      if (p.status === 'done' && new Date(p.resolvedAt) >= today) doneToday++;
-    });
-    document.getElementById('statPending').textContent = toVerify;
-    document.getElementById('statOverdue').textContent = overdue;
-    document.getElementById('statResolved').textContent = doneToday;
-    document.getElementById('statFeedback').textContent = toReissue;
-    document.querySelectorAll('.stat-label')[0].textContent = '待核实';
-    document.querySelectorAll('.stat-label')[1].textContent = 'SLA 超时';
-    document.querySelectorAll('.stat-label')[2].textContent = '今日已完成';
-    document.querySelectorAll('.stat-label')[3].textContent = '待补发';
-  }
+  let pending = 0, overdue = 0, resolvedThisWeek = 0, openFeedback = 0;
+  payments.forEach(p => {
+    if (p.status === 'pending' || p.status === 'progress') pending++;
+    if ((p.status === 'pending' || p.status === 'progress') && p.slaDeadline && new Date(p.slaDeadline) < now) overdue++;
+    if (p.status === 'done' && p.resolvedAt && new Date(p.resolvedAt) > weekAgo) resolvedThisWeek++;
+  });
+  feedbacks.forEach(f => { if (f.status === 'open') openFeedback++; });
+  document.getElementById('statPending').textContent = pending;
+  document.getElementById('statOverdue').textContent = overdue;
+  document.getElementById('statResolved').textContent = resolvedThisWeek;
+  document.getElementById('statFeedback').textContent = openFeedback;
 }
 
 function getSLAColor(deadline) {
@@ -943,15 +905,10 @@ function renderPayments(data) {
         ${p.status !== 'done' ? `<div class="sla-bar"><div class="sla-fill ${slaColor}" style="width:${slaPct}%"></div></div>` : ''}
       </td>
       <td>
-        ${currentRole === 'cs' ? `
-          ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();addPaymentNote('${p.id}')">📝</button>` : ''}
-          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();copyPaymentMsg('${p.id}')">📋</button>
-        ` : `
-          ${(p.status === 'pending' || p.status === 'progress') ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();opsAction('${p.id}','verify')">✅ 已核实</button>` : ''}
-          ${p.status === 'verified' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();opsAction('${p.id}','reissue')">💰 已补发</button>` : ''}
-          ${p.status === 'reissued' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();opsAction('${p.id}','done')">✔ 完成</button>` : ''}
-          ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();addPaymentNote('${p.id}')">📝</button>` : ''}
-        `}
+        ${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();updatePaymentStatus('${p.id}','progress')">▶ 处理</button>` : ''}
+        ${p.status === 'progress' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();updatePaymentStatus('${p.id}','done')">✅ 完成</button>` : ''}
+        ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();addPaymentNote('${p.id}')">📝</button>` : ''}
+        ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();copyPaymentMsg('${p.id}')">📋</button>` : ''}
       </td></tr>
     <tr class="expand-detail" id="detail-${p.id}">
       <td></td><td colspan="13">
@@ -1004,13 +961,12 @@ function toggleExpand(id) {
 }
 
 async function addPaymentNote(id) {
-  const handler = currentRole === 'ops' ? getHandler() : '';
   const note = prompt('添加备注：');
   if (!note) return;
   const p = _data.payments.find(p => p.id === id);
   if (p) {
-    const label = handler ? `[${new Date().toLocaleString('zh-CN')}] ${handler}：${note}` : `[${new Date().toLocaleString('zh-CN')}] ${note}`;
-    const newNotes = (p.notes || '') + '\n' + label;
+    const label = `\n[${new Date().toLocaleString('zh-CN')}] ${note}`;
+    const newNotes = (p.notes || '') + label;
     const ok = await putToServer('/api/payments/' + id, { status: p.status, resolvedAt: p.resolvedAt, notes: newNotes });
     if (!ok) {
       const data = loadLocal();
@@ -1195,44 +1151,6 @@ async function resetAll() {
   renderAll();
 }
 
-// ==================== HANDLER ====================
-function getHandler() {
-  const saved = localStorage.getItem('gamepulse_handler');
-  if (saved) return saved;
-  const name = prompt('请输入你的名字（用于标记处理人）：');
-  if (name) localStorage.setItem('gamepulse_handler', name);
-  return name || '';
-}
-
-// ==================== OPS ACTIONS ====================
-async function opsAction(id, action) {
-  const handler = getHandler();
-  if (!handler) return;
-  const p = _data.payments.find(p => p.id === id);
-  if (!p) return;
-
-  const statusMap = { verify: 'verified', reissue: 'reissued', done: 'done' };
-  // Allow verify from pending or progress
-  if (action === 'verify' && (p.status === 'pending' || p.status === 'progress')) { /* ok */ }
-  else if (action === 'reissue' && p.status !== 'verified') return;
-  else if (action === 'done' && p.status !== 'reissued') return;
-  const newStatus = statusMap[action];
-  const now = new Date().toISOString();
-  const log = `\n[${new Date().toLocaleString('zh-CN')}] ${handler} ${action === 'verify' ? '核实订单' : action === 'reissue' ? '完成补发' : '确认完成'}`;
-  const newNotes = (p.notes || '') + log;
-
-  const ok = await putToServer('/api/payments/' + id, {
-    status: newStatus,
-    resolvedAt: newStatus === 'done' ? now : (p.resolvedAt || null),
-    notes: newNotes
-  });
-  if (!ok) {
-    const data = loadLocal();
-    const lp = data.payments.find(p => p.id === id);
-    if (lp) { lp.status = newStatus; lp.notes = newNotes; if (newStatus === 'done') lp.resolvedAt = now; saveLocal(data); }
-  }
-  await refreshData();
-}
 
 // ==================== INIT ====================
 (async function init() {
