@@ -260,24 +260,19 @@ label { display:block; font-size:0.8rem; color:var(--text2); margin-bottom:4px; 
       </div>
       <div class="form-row">
         <div><label>玩家地区</label>
-          <select id="payRegion">
-            <option>台湾</option><option>香港</option>
-            <option>泰国</option><option>印尼</option><option>菲律宾</option><option>越南</option>
-            <option>巴西</option><option>墨西哥</option><option>美国</option>
-            <option>韩国</option><option>日本</option><option>其他</option>
+          <select id="payRegion" onchange="onRegionChange()">
+            <option value="">请选择</option>
+            <option value="台湾">台湾 (UTC+8)</option><option value="香港">香港 (UTC+8)</option>
+            <option value="泰国">泰国 (UTC+7)</option><option value="印尼">印尼 (UTC+7)</option><option value="菲律宾">菲律宾 (UTC+8)</option><option value="越南">越南 (UTC+7)</option>
+            <option value="巴西">巴西 (UTC-3)</option><option value="墨西哥">墨西哥 (UTC-6)</option><option value="美国">美国 (UTC-5)</option>
+            <option value="韩国">韩国 (UTC+9)</option><option value="日本">日本 (UTC+9)</option>
+            <option value="其他">其他</option>
           </select>
         </div>
-        <div><label>玩家时区</label>
-          <select id="payTz">
-            <option value="8">UTC+8 (台湾/香港/北京)</option><option value="7">UTC+7 (泰国/越南)</option>
-            <option value="9">UTC+9 (韩国/日本)</option><option value="-3">UTC-3 (巴西)</option>
-            <option value="-6">UTC-6 (墨西哥)</option><option value="-5">UTC-5 (美东)</option>
-            <option value="-8">UTC-8 (美西)</option>
-          </select>
-        </div>
+        <div><label>玩家投诉时间（玩家本地）</label><input id="payReportTime" type="datetime-local"></div>
       </div>
       <div class="form-row">
-        <div><label>玩家投诉时间（玩家本地）</label><input id="payReportTime" type="datetime-local"></div>
+        <input type="hidden" id="payTz" value="">
         <div><label>优先级</label>
           <select id="payPriority"><option value="high">🔴 高 (大R/高金额)</option><option value="mid" selected>🟡 中</option><option value="low">🟢 低</option></select>
         </div>
@@ -691,7 +686,7 @@ document.head.appendChild(toastStyle);
 // ==================== FORM PERSIST ====================
 const FORM_CACHE_KEY = 'gamepulse_form_cache';
 function saveFormCache() {
-  const fields = ['payCharId','payAccountId','payCharName','payServer','payChannel','payRegion','payTz','payPriority'];
+  const fields = ['payCharId','payAccountId','payCharName','payServer','payChannel','payRegion','payPriority'];
   const cache = {};
   fields.forEach(id => {
     const el = document.getElementById(id);
@@ -709,6 +704,8 @@ function loadFormCache() {
       if (el.tagName === 'SELECT') el.selectedIndex = val;
       else el.value = val || '';
     });
+    // Auto-set timezone from restored region
+    onRegionChange();
   } catch(e) {}
 }
 
@@ -986,6 +983,21 @@ function copyPaymentMsg(id) {
   });
 }
 
+// ==================== REGION → TIMEZONE ====================
+const REGION_TZ = {
+  '台湾':8, '香港':8, '菲律宾':8,
+  '泰国':7, '印尼':7, '越南':7,
+  '韩国':9, '日本':9,
+  '巴西':-3, '墨西哥':-6, '美国':-5,
+  '其他':8
+};
+function onRegionChange() {
+  const region = document.getElementById('payRegion').value;
+  const tz = REGION_TZ[region] !== undefined ? REGION_TZ[region] : 8;
+  document.getElementById('payTz').value = tz;
+  saveFormCache();
+}
+
 function toggleExpand(id) {
   const el = document.getElementById('detail-' + id);
   if (el) el.classList.toggle('show');
@@ -1233,7 +1245,7 @@ async function opsAction(id, action) {
   loadFormCache();
 
   // Save form values on change (remember-able fields)
-  ['payCharId','payAccountId','payCharName','payServer','payChannel','payRegion','payTz','payPriority'].forEach(id => {
+  ['payCharId','payAccountId','payCharName','payServer','payChannel','payRegion','payPriority'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', saveFormCache);
     if (el) el.addEventListener('change', saveFormCache);
