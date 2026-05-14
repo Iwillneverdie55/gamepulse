@@ -769,7 +769,7 @@ function renderStats(data) {
     let toVerify = 0, toReissue = 0, overdue = 0, doneToday = 0;
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     payments.forEach(p => {
-      if (p.status === 'progress') toVerify++;
+      if (p.status === 'pending' || p.status === 'progress') toVerify++;
       if (p.status === 'verified') toReissue++;
       if ((p.status === 'progress' || p.status === 'verified') && p.slaDeadline && new Date(p.slaDeadline) < now) overdue++;
       if (p.status === 'done' && new Date(p.resolvedAt) >= today) doneToday++;
@@ -872,10 +872,9 @@ function renderPayments(data) {
       </td>
       <td>
         ${currentRole === 'cs' ? `
-          ${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();updatePaymentStatus('${p.id}','progress')">▶ 转运营</button>` : ''}
-          ${p.status === 'progress' || p.status === 'verified' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();addPaymentNote('${p.id}')">📝</button>` : ''}
+          ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();addPaymentNote('${p.id}')">📝</button>` : ''}
         ` : `
-          ${p.status === 'progress' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();opsAction('${p.id}','verify')">✅ 已核实</button>` : ''}
+          ${(p.status === 'pending' || p.status === 'progress') ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();opsAction('${p.id}','verify')">✅ 已核实</button>` : ''}
           ${p.status === 'verified' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();opsAction('${p.id}','reissue')">💰 已补发</button>` : ''}
           ${p.status === 'reissued' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();opsAction('${p.id}','done')">✔ 完成</button>` : ''}
           ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();addPaymentNote('${p.id}')">📝</button>` : ''}
@@ -1107,6 +1106,10 @@ async function opsAction(id, action) {
   if (!p) return;
 
   const statusMap = { verify: 'verified', reissue: 'reissued', done: 'done' };
+  // Allow verify from pending or progress
+  if (action === 'verify' && (p.status === 'pending' || p.status === 'progress')) { /* ok */ }
+  else if (action === 'reissue' && p.status !== 'verified') return;
+  else if (action === 'done' && p.status !== 'reissued') return;
   const newStatus = statusMap[action];
   const now = new Date().toISOString();
   const log = `\n[${new Date().toLocaleString('zh-CN')}] ${handler} ${action === 'verify' ? '核实订单' : action === 'reissue' ? '完成补发' : '确认完成'}`;
