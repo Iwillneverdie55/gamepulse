@@ -641,9 +641,7 @@ async function updatePaymentStatus(id, status) {
 // ==================== COPY TO WECHAT ====================
 function showCopyToast(payment) {
   const tzLabel = {'8':'UTC+8','7':'UTC+7','9':'UTC+9','-3':'UTC-3','-6':'UTC-6','-5':'UTC-5','-8':'UTC-8'};
-  const msg = `【充值掉单】⚠️ SLA: ${payment.slaHours}h
-━━━━━━━━━━━━━━━━
-区服：${payment.server || '--'}
+  const msg = `区服：${payment.server || '--'}
 角色ID：${payment.charId || '--'}
 角色名：${payment.charName || '--'}
 账号ID：${payment.accountId || '--'}
@@ -651,9 +649,7 @@ function showCopyToast(payment) {
 金额：$${(payment.amount || 0).toFixed(2)}
 渠道：${payment.channel || '--'}
 地区：${payment.region || '--'}｜${tzLabel[String(payment.tz)] || 'UTC+'+payment.tz}
-问题：${payment.desc || '--'}
-━━━━━━━━━━━━━━━━
-工单号：${payment.id} | GamePulse`;
+问题：${payment.desc || '--'}`;
 
   navigator.clipboard.writeText(msg).then(() => {
     showToast('✅ 已复制群消息格式，直接粘贴到企业微信');
@@ -976,9 +972,7 @@ function copyPaymentMsg(id) {
   const p = _data.payments.find(p => p.id === id);
   if (!p) return;
   const tzLabel = {'8':'UTC+8','7':'UTC+7','9':'UTC+9','-3':'UTC-3','-6':'UTC-6','-5':'UTC-5','-8':'UTC-8'};
-  const msg = `【充值掉单】⚠️ SLA: ${p.slaHours || 4}h
-━━━━━━━━━━━━━━━━
-区服：${p.server || '--'}
+  const msg = `区服：${p.server || '--'}
 角色ID：${p.charId || '--'}
 角色名：${p.charName || '--'}
 账号ID：${p.accountId || '--'}
@@ -986,9 +980,7 @@ function copyPaymentMsg(id) {
 金额：$${(p.amount || 0).toFixed(2)}
 渠道：${p.channel || '--'}
 地区：${p.region || '--'}｜${tzLabel[String(p.tz)] || 'UTC+'+p.tz}
-问题：${p.desc || '--'}
-━━━━━━━━━━━━━━━━
-工单号：${p.id} | GamePulse`;
+问题：${p.desc || '--'}`;
   navigator.clipboard.writeText(msg).then(() => {
     showToast('✅ 已复制，粘贴到企业微信群');
   });
@@ -1232,15 +1224,20 @@ async function opsAction(id, action) {
 
 // ==================== INIT ====================
 (async function init() {
-  // Time confirmation on payment form
+  // Time confirmation: show confirm button next to datetime input
   const payTimeInput = document.getElementById('payReportTime');
+  const payTimeLabel = document.querySelector('label[for="payReportTime"]') || payTimeInput?.parentElement?.querySelector('label');
   if (payTimeInput) {
+    // Create confirm button
+    const confirmBtn = document.createElement('span');
+    confirmBtn.id = 'timeConfirmBtn';
+    confirmBtn.style.cssText = 'display:none;margin-left:8px;padding:4px 10px;border-radius:6px;background:var(--green);color:#fff;font-size:0.75rem;cursor:pointer;white-space:nowrap';
+    confirmBtn.textContent = '✓ 确认时间';
+    confirmBtn.onclick = () => { confirmBtn.style.display = 'none'; };
+    payTimeInput.parentElement.appendChild(confirmBtn);
+
     payTimeInput.addEventListener('change', function() {
-      const d = new Date(this.value);
-      const tz = document.getElementById('payTz').value;
-      const tzLabel = { '8':'UTC+8', '7':'UTC+7', '9':'UTC+9', '-3':'UTC-3', '-6':'UTC-6', '-5':'UTC-5', '-8':'UTC-8' };
-      const msg = `确认投诉时间：\n${d.toLocaleString('zh-CN')}\n时区：${tzLabel[tz] || 'UTC+'+tz}`;
-      if (!confirm(msg)) { this.value = ''; }
+      if (this.value) confirmBtn.style.display = 'inline-block';
     });
   }
 
