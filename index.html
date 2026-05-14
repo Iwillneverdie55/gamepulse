@@ -1224,22 +1224,6 @@ async function opsAction(id, action) {
 
 // ==================== INIT ====================
 (async function init() {
-  // Time confirmation: show confirm button next to datetime input
-  const payTimeInput = document.getElementById('payReportTime');
-  const payTimeLabel = document.querySelector('label[for="payReportTime"]') || payTimeInput?.parentElement?.querySelector('label');
-  if (payTimeInput) {
-    // Create confirm button
-    const confirmBtn = document.createElement('span');
-    confirmBtn.id = 'timeConfirmBtn';
-    confirmBtn.style.cssText = 'display:none;margin-left:8px;padding:4px 10px;border-radius:6px;background:var(--green);color:#fff;font-size:0.75rem;cursor:pointer;white-space:nowrap';
-    confirmBtn.textContent = '✓ 确认时间';
-    confirmBtn.onclick = () => { confirmBtn.style.display = 'none'; };
-    payTimeInput.parentElement.appendChild(confirmBtn);
-
-    payTimeInput.addEventListener('change', function() {
-      if (this.value) confirmBtn.style.display = 'inline-block';
-    });
-  }
 
   // Load from local cache first for instant render
   _data = loadLocal();
