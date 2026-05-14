@@ -610,8 +610,21 @@ async function updatePaymentStatus(id, status) {
   const now = new Date().toISOString();
   const p = _data.payments.find(p => p.id === id);
   const body = { status, resolvedAt: status === 'done' ? now : (p ? p.resolvedAt : null), notes: p ? (p.notes || '') : '' };
-  const ok = await putToServer('/api/payments/' + id, body);
-  if (!ok) {
+
+  const res = await fetch((API_BASE || '') + '/api/payments/' + id, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+
+  if (res.status === 409) {
+    const data = await res.json();
+    showToast('⚠️ ' + (data.error || '操作冲突，请刷新后重试'));
+    await refreshData();
+    return;
+  }
+
+  if (!res.ok) {
     const data = loadLocal();
     const lp = data.payments.find(p => p.id === id);
     if (lp) { lp.status = status; if (status === 'done') lp.resolvedAt = now; saveLocal(data); }
@@ -934,8 +947,19 @@ async function deletePayment(id) {
   if (!confirm(`确认删除工单 ${id}？\n\n角色：${p.charName || '--'} (${p.charId || '--'})\n订单：${p.orderId || '--'}\n\n此操作不可撤销。`)) return;
 
   // Delete by marking status as 'deleted' with a PUT
-  const ok = await putToServer('/api/payments/' + id, { status: 'deleted', resolvedAt: p.resolvedAt, notes: (p.notes || '') + '\n[已删除]' });
-  if (!ok) {
+  const res = await fetch((API_BASE || '') + '/api/payments/' + id, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ status: 'deleted', resolvedAt: p.resolvedAt, notes: (p.notes || '') + '\n[已删除]' })
+  });
+
+  if (res.status === 409) {
+    showToast('⚠️ 该工单已被他人操作，请刷新后重试');
+    await refreshData();
+    return;
+  }
+
+  if (!res.ok) {
     const data = loadLocal();
     const idx = data.payments.findIndex(p => p.id === id);
     if (idx >= 0) { data.payments.splice(idx, 1); saveLocal(data); }

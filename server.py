@@ -98,12 +98,29 @@ def api_add_payment():
         conn.commit()
     return jsonify({"ok": True}), 201
 
+VALID_TRANSITIONS = {
+    "pending": ["progress", "deleted"],
+    "progress": ["done", "deleted"],
+    "done": [],         # final state, no transitions allowed
+    "deleted": [],      # final state
+    "verified": ["reissued", "deleted"],
+    "reissued": ["done", "deleted"],
+}
+
 @app.route("/api/payments/<pid>", methods=["PUT"])
 def api_update_payment(pid):
     p = request.json
+    new_status = p.get("status")
     with get_db() as conn:
+        current = conn.execute("SELECT status FROM payments WHERE id=?", (pid,)).fetchone()
+        if not current:
+            return jsonify({"ok": False, "error": "not found"}), 404
+        old_status = current["status"]
+        allowed = VALID_TRANSITIONS.get(old_status, [])
+        if new_status not in allowed:
+            return jsonify({"ok": False, "error": f"Cannot change from '{old_status}' to '{new_status}'"}), 409
         conn.execute("UPDATE payments SET status=?, resolved_at=?, notes=? WHERE id=?",
-                     (p.get("status"), p.get("resolvedAt"), p.get("notes",""), pid))
+                     (new_status, p.get("resolvedAt"), p.get("notes",""), pid))
         conn.commit()
     return jsonify({"ok": True})
 
