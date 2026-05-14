@@ -809,6 +809,7 @@ function renderStats(data) {
 
   let pending = 0, overdue = 0, resolvedThisWeek = 0, openFeedback = 0;
   payments.forEach(p => {
+    if (p.status === 'deleted') return;
     if (p.status === 'pending' || p.status === 'progress') pending++;
     if ((p.status === 'pending' || p.status === 'progress') && p.slaDeadline && new Date(p.slaDeadline) < now) overdue++;
     if (p.status === 'done' && p.resolvedAt && new Date(p.resolvedAt) > weekAgo) resolvedThisWeek++;
@@ -878,6 +879,8 @@ function renderPayments(data) {
     return;
   }
 
+  items = items.filter(p => p.status !== 'deleted');
+
   let html = `<table><tr>
     <th style="width:24px"></th><th>工单号</th><th>角色ID</th><th>角色名</th><th>区服</th><th>订单号</th><th>渠道</th><th>金额</th>
     <th>地区</th><th>优先级</th><th>状态</th><th>SLA 剩余</th><th>操作</th></tr>`;
@@ -906,7 +909,8 @@ function renderPayments(data) {
       <td>
         ${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();updatePaymentStatus('${p.id}','progress')">▶ 处理</button>` : ''}
         ${p.status === 'progress' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();updatePaymentStatus('${p.id}','done')">✅ 完成</button>` : ''}
-        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();copyPaymentMsg('${p.id}')">📋</button>
+        ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();copyPaymentMsg('${p.id}')">📋</button>` : ''}
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deletePayment('${p.id}')">🗑</button>
       </td></tr>
     <tr class="expand-detail" id="detail-${p.id}">
       <td></td><td colspan="12">
@@ -922,6 +926,21 @@ function renderPayments(data) {
 function toggleExpand(id) {
   const el = document.getElementById('detail-' + id);
   if (el) el.classList.toggle('show');
+}
+
+async function deletePayment(id) {
+  const p = _data.payments.find(p => p.id === id);
+  if (!p) return;
+  if (!confirm(`确认删除工单 ${id}？\n\n角色：${p.charName || '--'} (${p.charId || '--'})\n订单：${p.orderId || '--'}\n\n此操作不可撤销。`)) return;
+
+  // Delete by marking status as 'deleted' with a PUT
+  const ok = await putToServer('/api/payments/' + id, { status: 'deleted', resolvedAt: p.resolvedAt, notes: (p.notes || '') + '\n[已删除]' });
+  if (!ok) {
+    const data = loadLocal();
+    const idx = data.payments.findIndex(p => p.id === id);
+    if (idx >= 0) { data.payments.splice(idx, 1); saveLocal(data); }
+  }
+  await refreshData();
 }
 
 function copyPaymentMsg(id) {
@@ -1055,7 +1074,7 @@ function renderNetworks(data) {
 }
 
 function renderAnalytics(data) {
-  const payments = data.payments || [];
+  const payments = (data.payments || []).filter(p => p.status !== 'deleted');
   const feedbacks = data.feedbacks || [];
 
   const channels = {};
