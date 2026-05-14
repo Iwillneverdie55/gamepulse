@@ -170,6 +170,7 @@ def api_add_network():
 def api_report():
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
     from datetime import datetime, timedelta
 
     start = request.args.get("start")
@@ -255,42 +256,41 @@ def api_report():
         if p['status'] == 'done' and p.get('resolvedAt'):
             d = (datetime.fromisoformat(p['resolvedAt'].replace('Z','')) - datetime.fromisoformat(p['createdAt'].replace('Z',''))).total_seconds() / 60
             duration = f"{int(d//60)}h {int(d%60)}m"
-        row_data = [p['id'], p.get('charId',''), p.get('charName',''), p.get('server',''), p.get('orderId',''),
-                    p.get('channel',''), p.get('amount',0), p.get('region',''), p.get('priority',''),
+        row_data = [p['id'], p.get('charId') or '', p.get('charName') or '', p.get('server') or '', p.get('orderId') or '',
+                    p.get('channel') or '', p.get('amount') or 0, p.get('region') or '', p.get('priority') or '',
                     {'pending':'待处理','progress':'处理中','done':'已完成','verified':'已核实','reissued':'已补发'}.get(p['status'],p['status']),
-                    p.get('desc',''), p['createdAt'][:16] if p.get('createdAt') else '', duration, sla]
+                    p.get('desc') or '', (p.get('createdAt') or '')[:16], duration, sla]
         for c, v in enumerate(row_data, 1):
-            ws2.cell(row=r, column=c, value=v).border = thin_border
-    for c in range(1, len(headers2)+1):
-        ws2.column_dimensions[chr(64+c) if c <= 26 else 'A'].width = 14
+            ws2.cell(row=r, column=c, value=v if v is not None else '').border = thin_border
+
+    col_widths = [12,10,10,8,12,18,10,8,8,8,30,18,10,8]
+    for c, w in enumerate(col_widths, 1):
+        ws2.column_dimensions[get_column_letter(c)].width = w
 
     # ── Sheet 3: Analysis ──
     ws3 = wb.create_sheet("分析")
-    ws3.cell(row=1, column=1, value="渠道分布").font = header_font
+
+    def write_section(ws, start_row, col, title, data_dict):
+        ws.cell(row=start_row, column=col, value=title).font = header_font
+        for i, (key, cnt) in enumerate(sorted(data_dict.items(), key=lambda x: -x[1])):
+            ws.cell(row=start_row + 1 + i, column=col, value=key or '未知')
+            ws.cell(row=start_row + 1 + i, column=col + 1, value=cnt)
+            ws.cell(row=start_row + 1 + i, column=col + 2, value=f"{round(cnt/total*100,1)}%" if total else "0%")
+
     channels = {}
-    for p in payments: channels[p.get('channel','未知')] = channels.get(p.get('channel','未知'), 0) + 1
-    for i, (ch, cnt) in enumerate(sorted(channels.items(), key=lambda x: -x[1]), 2):
-        ws3.cell(row=i, column=1, value=ch)
-        ws3.cell(row=i, column=2, value=cnt)
-        ws3.cell(row=i, column=3, value=f"{round(cnt/total*100,1)}%" if total else "0%")
+    for p in payments: channels[p.get('channel') or '未知'] = channels.get(p.get('channel') or '未知', 0) + 1
+    write_section(ws3, 1, 1, "渠道分布", channels)
 
-    ws3.cell(row=1, column=5, value="地区分布").font = header_font
     regions = {}
-    for p in payments: regions[p.get('region','未知')] = regions.get(p.get('region','未知'), 0) + 1
-    for i, (rg, cnt) in enumerate(sorted(regions.items(), key=lambda x: -x[1]), 2):
-        ws3.cell(row=i, column=5, value=rg)
-        ws3.cell(row=i, column=6, value=cnt)
-        ws3.cell(row=i, column=7, value=f"{round(cnt/total*100,1)}%" if total else "0%")
+    for p in payments: regions[p.get('region') or '未知'] = regions.get(p.get('region') or '未知', 0) + 1
+    write_section(ws3, 1, 5, "地区分布", regions)
 
-    ws3.cell(row=1, column=9, value="反馈分类").font = header_font
     fbcats = {}
-    for f in feedbacks: fbcats[f.get('category','未知')] = fbcats.get(f.get('category','未知'), 0) + 1
-    for i, (cat, cnt) in enumerate(sorted(fbcats.items(), key=lambda x: -x[1]), 2):
-        ws3.cell(row=i, column=9, value=cat)
-        ws3.cell(row=i, column=10, value=cnt)
+    for f in feedbacks: fbcats[f.get('category') or '未知'] = fbcats.get(f.get('category') or '未知', 0) + 1
+    write_section(ws3, 1, 9, "反馈分类", {k: v for k, v in fbcats.items() if k != '未知'})
 
-    for col in [1,5,9]:
-        ws3.column_dimensions[chr(64+col)].width = 16
+    for col, w in [(1,16),(5,16),(9,16),(2,8),(6,8),(10,8),(3,10),(7,10),(11,10)]:
+        ws3.column_dimensions[get_column_letter(col)].width = w
 
     from io import BytesIO
     output = BytesIO()
