@@ -140,13 +140,6 @@ label { display:block; font-size:0.8rem; color:var(--text2); margin-bottom:4px; 
 .sla-fill.warn { background:var(--orange); }
 .sla-fill.bad { background:var(--red); }
 
-/* Expandable row */
-.expand-row { cursor:pointer; }
-.expand-row:hover td { background:var(--surface2); }
-.expand-detail { display:none; background:var(--surface2); }
-.expand-detail.show { display:table-row; }
-.expand-detail td { padding:12px 16px; font-size:0.82rem; color:var(--text2); line-height:1.8; border-bottom:2px solid var(--border); }
-.expand-detail td b { color:var(--text); }
 
 /* Two column layout */
 .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -886,10 +879,7 @@ function renderPayments(data) {
     const slaPct = getSLAPercent(p.slaDeadline, p.slaHours);
     const hoursLeft = p.slaDeadline ? Math.round((new Date(p.slaDeadline) - new Date()) / 3600000 * 10) / 10 : 0;
     const slaText = p.status === 'done' ? '✅ 已完成' : (hoursLeft < 0 ? `⚠ 超时 ${Math.abs(Math.round(hoursLeft))}h` : `⏱ 剩余 ${hoursLeft}h`);
-    const details = [p.desc, p.notes].filter(Boolean).join('') || '暂无详情';
-
-    html += `<tr class="expand-row" onclick="toggleExpand('${p.id}')" title="点击展开详情">
-      <td style="text-align:center;font-size:0.7rem;color:var(--text2)">▶</td>
+    html += `<tr>
       <td style="font-family:monospace;font-size:0.8rem">${p.id}</td>
       <td>${p.charId || '--'}</td>
       <td>${p.charName || '--'}</td>
@@ -905,16 +895,9 @@ function renderPayments(data) {
         ${p.status !== 'done' ? `<div class="sla-bar"><div class="sla-fill ${slaColor}" style="width:${slaPct}%"></div></div>` : ''}
       </td>
       <td>
-        ${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();updatePaymentStatus('${p.id}','progress')">▶ 处理</button>` : ''}
-        ${p.status === 'progress' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();updatePaymentStatus('${p.id}','done')">✅ 完成</button>` : ''}
-        ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();addPaymentNote('${p.id}')">📝</button>` : ''}
-        ${p.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();copyPaymentMsg('${p.id}')">📋</button>` : ''}
-      </td></tr>
-    <tr class="expand-detail" id="detail-${p.id}">
-      <td></td><td colspan="13">
-        <b>问题描述：</b>${p.desc || '--'}<br>
-        <b>备注记录：</b>${p.notes ? p.notes.replace(/\n/g, '<br>') : '暂无'}
-        ${p.handler ? `<br><b>处理人：</b>${p.handler}` : ''}
+        ${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="updatePaymentStatus('${p.id}','progress')">▶ 处理</button>` : ''}
+        ${p.status === 'progress' ? `<button class="btn btn-primary btn-sm" onclick="updatePaymentStatus('${p.id}','done')">✅ 完成</button>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="copyPaymentMsg('${p.id}')">📋</button>
       </td></tr>`;
   });
 
@@ -955,10 +938,6 @@ function onRegionChange() {
   saveFormCache();
 }
 
-function toggleExpand(id) {
-  const el = document.getElementById('detail-' + id);
-  if (el) el.classList.toggle('show');
-}
 
 async function addPaymentNote(id) {
   const note = prompt('添加备注：');
