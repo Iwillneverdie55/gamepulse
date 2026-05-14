@@ -510,10 +510,13 @@ label { display:block; font-size:0.8rem; color:var(--text2); margin-bottom:4px; 
     <div style="display:flex;flex-direction:column;gap:12px">
       <button class="btn btn-primary" onclick="downloadReport(7)">📅 最近 7 天</button>
       <button class="btn btn-primary" onclick="downloadReport(30)">📅 最近 30 天</button>
+      <div style="font-size:0.85rem;color:var(--text2);margin-top:8px">自定义范围</div>
       <div style="display:flex;gap:8px;align-items:center">
-        <input type="number" id="customDays" placeholder="自定义天数" style="flex:1" min="1" max="365">
-        <button class="btn btn-primary btn-sm" onclick="downloadReport(parseInt(document.getElementById('customDays').value)||0)" style="white-space:nowrap">导出</button>
+        <input type="date" id="reportStart" style="flex:1">
+        <span style="color:var(--text2)">至</span>
+        <input type="date" id="reportEnd" style="flex:1">
       </div>
+      <button class="btn btn-primary btn-sm" onclick="downloadReportRange()" style="width:100%">导出自定义范围</button>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('reportModal').style.display='none'" style="margin-top:16px;width:100%">取消</button>
   </div>
@@ -1195,16 +1198,24 @@ function showReportModal() {
   document.getElementById('reportModal').style.display = 'flex';
 }
 function downloadReport(days) {
-  if (!days || days < 1) { showToast('⚠️ 请输入有效天数'); return; }
   document.getElementById('reportModal').style.display = 'none';
   showToast('⏳ 正在生成报表...');
   const url = (API_BASE || '') + '/api/report?days=' + days;
+  triggerDownload(url);
+}
+function downloadReportRange() {
+  const start = document.getElementById('reportStart').value;
+  const end = document.getElementById('reportEnd').value;
+  if (!start || !end) { showToast('⚠️ 请选择开始和结束日期'); return; }
+  document.getElementById('reportModal').style.display = 'none';
+  showToast('⏳ 正在生成报表...');
+  const url = (API_BASE || '') + `/api/report?start=${start}&end=${end}`;
+  triggerDownload(url);
+}
+function triggerDownload(url) {
   const a = document.createElement('a');
-  a.href = url;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href = url; a.download = '';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => {
     const toast = document.getElementById('copyToast');
     if (toast) toast.remove();

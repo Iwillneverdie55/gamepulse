@@ -172,19 +172,28 @@ def api_report():
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
     from datetime import datetime, timedelta
 
-    days = request.args.get("days", "7")
-    try:
-        days = int(days)
-    except ValueError:
-        days = 7
-    since = (datetime.utcnow() - timedelta(days=days)).isoformat() + "Z"
+    start = request.args.get("start")
+    end = request.args.get("end")
+    if start and end:
+        since = start + "T00:00:00Z"
+        until = end + "T23:59:59Z"
+        label = f"{start} ~ {end}"
+    else:
+        days = request.args.get("days", "7")
+        try:
+            days = int(days)
+        except ValueError:
+            days = 7
+        since = (datetime.utcnow() - timedelta(days=days)).isoformat() + "Z"
+        until = datetime.utcnow().isoformat() + "Z"
+        label = f"最近 {days} 天"
 
     with get_db() as conn:
         payments = [row_to_dict(r) for r in conn.execute(
-            "SELECT * FROM payments WHERE created_at >= ? AND status != 'deleted' ORDER BY created_at DESC", (since,)
+            "SELECT * FROM payments WHERE created_at >= ? AND created_at <= ? AND status != 'deleted' ORDER BY created_at DESC", (since, until)
         ).fetchall()]
         feedbacks = [row_to_dict(r) for r in conn.execute(
-            "SELECT * FROM feedbacks WHERE created_at >= ? ORDER BY created_at DESC", (since,)
+            "SELECT * FROM feedbacks WHERE created_at >= ? AND created_at <= ? ORDER BY created_at DESC", (since, until)
         ).fetchall()]
 
     wb = Workbook()
@@ -219,7 +228,7 @@ def api_report():
     avg_h = f"{avg_min // 60}h {avg_min % 60}m" if avg_min > 0 else "N/A"
 
     ws1.merge_cells('A1:C1')
-    ws1.cell(row=1, column=1, value=f"GamePulse 运营报表（最近 {days} 天）").font = Font(bold=True, size=14)
+    ws1.cell(row=1, column=1, value=f"GamePulse 运营报表（{label}）").font = Font(bold=True, size=14)
     ws1.cell(row=2, column=1, value=f"生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}").font = Font(italic=True, color="888888")
 
     summary = [
@@ -288,7 +297,7 @@ def api_report():
     wb.save(output)
     output.seek(0)
     return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                     as_attachment=True, download_name=f"gamepulse_report_{days}d_{datetime.now().strftime('%Y%m%d')}.xlsx")
+                     as_attachment=True, download_name=f"gamepulse_report_{datetime.now().strftime('%Y%m%d')}.xlsx")
 
 # ── Static files ─────────────────────────────────────
 
