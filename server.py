@@ -164,6 +164,16 @@ def api_add_network():
         conn.commit()
     return jsonify({"ok": True}), 201
 
+@app.route("/api/reset", methods=["POST"])
+def api_reset():
+    with get_db() as conn:
+        conn.execute("DELETE FROM payments")
+        conn.execute("DELETE FROM feedbacks")
+        conn.execute("DELETE FROM liveops")
+        conn.execute("DELETE FROM networks")
+        conn.commit()
+    return jsonify({"ok": True})
+
 # ── Report ────────────────────────────────────────────
 
 @app.route("/api/report")

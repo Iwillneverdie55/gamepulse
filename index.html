@@ -558,17 +558,6 @@ async function postToServer(path, body) {
   } catch(e) { return false; }
 }
 
-async function putToServer(path, body) {
-  if (API_BASE === null) return false;
-  try {
-    const res = await fetch(API_BASE + path, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body)
-    });
-    return res.ok;
-  } catch(e) { return false; }
-}
 
 async function refreshData() {
   const serverData = await fetchFromServer();
@@ -586,6 +575,12 @@ async function refreshData() {
 
 // ==================== PAYMENT ====================
 async function addPayment() {
+  const charId = document.getElementById('payCharId').value.trim();
+  const orderId = document.getElementById('payOrderId').value.trim();
+  const desc = document.getElementById('payDesc').value.trim();
+  if (!charId && !orderId) { showToast('⚠️ 请至少填写角色ID或订单号'); return; }
+  if (!desc) { showToast('⚠️ 请填写问题描述'); return; }
+
   const now = new Date();
   const tz = parseInt(document.getElementById('payTz').value);
   const reportLocal = document.getElementById('payReportTime').value;
@@ -728,17 +723,12 @@ function loadFormCache() {
   } catch(e) {}
 }
 
-function clearPaymentForm() {
-  ['payOrderId','payAmount','payDesc'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  document.getElementById('payReportTime').value = '';
-  // Remember persistent fields
-  saveFormCache();
-}
 
 // ==================== FEEDBACK ====================
 async function addFeedback() {
+  const fbContent = document.getElementById('fbContent').value.trim();
+  if (!fbContent) { showToast('⚠️ 请填写反馈内容'); return; }
+
   const feedback = {
     id: 'FB-' + Date.now().toString(36).toUpperCase(),
     source: document.getElementById('fbSource').value,
@@ -748,7 +738,7 @@ async function addFeedback() {
     charName: document.getElementById('fbCharName').value,
     server: document.getElementById('fbServer').value,
     region: document.getElementById('fbRegion').value,
-    content: document.getElementById('fbContent').value,
+    content: fbContent,
     impact: document.getElementById('fbImpact').value,
     severity: document.getElementById('fbSeverity').value,
     createdAt: new Date().toISOString(),
@@ -1021,22 +1011,7 @@ function onRegionChange() {
 }
 
 
-async function addPaymentNote(id) {
-  const note = prompt('添加备注：');
-  if (!note) return;
-  const p = _data.payments.find(p => p.id === id);
-  if (p) {
-    const label = `\n[${new Date().toLocaleString('zh-CN')}] ${note}`;
-    const newNotes = (p.notes || '') + label;
-    const ok = await putToServer('/api/payments/' + id, { status: p.status, resolvedAt: p.resolvedAt, notes: newNotes });
-    if (!ok) {
-      const data = loadLocal();
-      const lp = data.payments.find(p => p.id === id);
-      if (lp) lp.notes = newNotes; saveLocal(data);
-    }
-    await refreshData();
-  }
-}
+
 
 function renderFeedbacks(data) {
   const container = document.getElementById('feedbackList');
@@ -1235,7 +1210,7 @@ async function resetAll() {
   if (!confirm('确定要清空所有数据吗？此操作不可撤销。\n\n建议先点击"导出数据"备份。')) return;
   localStorage.removeItem(STORAGE_KEY);
   if (API_BASE !== null) {
-    // Server-side reset: just clear local, server data stays (no DELETE endpoint)
+    await fetch((API_BASE || '') + '/api/reset', { method: 'POST' });
   }
   _data = { payments:[], feedbacks:[], liveops:[], networks:[] };
   renderAll();
